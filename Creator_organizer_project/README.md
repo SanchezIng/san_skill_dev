@@ -31,16 +31,35 @@ SKILLS-PORTABLE/
 ### Conseguir el kit
 
 Vive en el repo-catálogo [san_skill_dev](https://github.com/SanchezIng/san_skill_dev),
-carpeta `Creator_organizer_project/`. Desde la raíz del proyecto destino:
+carpeta `Creator_organizer_project/`. Tres formas equivalentes — el kit es autocontenido:
+
+**A) Clonar el repo (temporal, no deja nada de más):**
 
 ```bash
+cd /ruta/al/proyecto
 git clone https://github.com/SanchezIng/san_skill_dev.git
 sh san_skill_dev/Creator_organizer_project/instalar.sh .
-rm -rf san_skill_dev   # opcional: el instalador ya dejó el kit en SKILLS-PORTABLE/
+rm -rf san_skill_dev   # el instalador ya dejó el kit en SKILLS-PORTABLE/
 ```
 
-(O copiar la carpeta `SKILLS-PORTABLE/` desde cualquier proyecto que ya la tenga —
-ambas cosas valen, el kit es autocontenido.)
+Aunque el repo tenga más skills, en el proyecto solo quedan `SKILLS-PORTABLE/` y
+`.claude/skills/` — el clon completo se borra.
+
+**B) Copiar/descargar SOLO la carpeta del kit, con cualquier nombre:**
+
+El instalador usa su propia ruta, así que el nombre y la ubicación de la carpeta de
+origen dan igual (`kit_creator_organizer_project/`, un ZIP descargado, un pendrive…):
+
+```bash
+sh /donde/sea/kit_creator_organizer_project/instalar.sh /ruta/al/proyecto
+```
+
+**C) Copiar `SKILLS-PORTABLE/` desde cualquier proyecto que ya la tenga.**
+
+> **El único nombre que importa es el del destino:** el instalador siempre deja la
+> copia dentro del proyecto como `SKILLS-PORTABLE/` — ese nombre está fijado en el
+> instalador y es donde el kickstart busca sus plantillas. **No renombres esa copia.**
+> La carpeta de origen, tras instalar, queda redundante: puedes borrarla.
 
 ### Lo más rápido: el instalador
 
