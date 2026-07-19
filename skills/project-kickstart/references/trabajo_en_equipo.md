@@ -104,7 +104,7 @@ Handoff docs **por módulo**: progreso/fase-{n}.{m}-{modulo}.md. progreso/estado
 Tareas mapeadas desde las subfases. Formato:
 
 ```markdown
-### T-014 · [B] Endpoint POST /facturas
+### T-014 · [B] Endpoint POST /facturas (#14)
 - Módulo: B — Plataforma API
 - Depende de: T-008 (interfaz EmisionService definida)
 - Criterios de aceptación:
@@ -113,6 +113,11 @@ Tareas mapeadas desde las subfases. Formato:
   - [ ] Documentado en OpenAPI
 - Estado: Disponible | En progreso | Review | Done
 ```
+
+El `(#N)` de la cabecera es el número del issue de GitHub: se añade al espejar el
+backlog como Issues (no existe antes). La guarda de CI (`scripts/docs_check.py`) lo
+usa para cotejar que ninguna tarea `Done` tenga su issue abierto — sin `(#N)`, esa
+tarea queda fuera de la verificación.
 
 Una tarea está **disponible** solo si sus dependencias están Terminadas. Cada dev toma tareas disponibles de cualquier módulo no bloqueado, respetando la regla de no invadir un módulo que otro tiene En progreso (salvo tareas internas coordinadas).
 
@@ -144,7 +149,10 @@ Si el dominio lo pide, se puede **añadir un módulo nuevo** al catálogo (ej. u
 
 Añadir sección "## Convenciones de Equipo" al CLAUDE.md:
 
-1. **Nadie hace push directo a main.** Todo entra por Pull Request.
+1. **Nadie hace push directo a main.** Todo entra por Pull Request. **Única excepción:**
+   los commits de coordinación del tablero (`progreso/tablero-equipo.md`) van directo a
+   main — son coordinación, no código, y el reclamo de una tarea debe ser visible para
+   todo el equipo al instante (así operan `/que-toca` y `/cerrar-sesion`).
 2. **Todo PR requiere >=1 revisión humana de otro dev.** Regla con IA: *"respondes por lo que tu Claude Code generó"* — si no puedes explicar una línea, no se mergea.
 3. **PRs pequeños** (< ~400 líneas de diff). Subfase grande = varios PRs.
 4. **CI verde obligatorio** para mergear (sección 10).

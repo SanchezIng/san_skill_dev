@@ -1,0 +1,23 @@
+# Guardas de deriva doc<->realidad: un doc que miente es peor que
+# no tener doc — envenena a humanos y LLMs con confianza falsa. Falla el CI si
+# docs/ referencia archivos inexistentes o si el backlog marca Done una tarea
+# cuyo issue sigue abierto.
+name: Docs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  coherencia:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enlaces relativos + coherencia backlog<->issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/docs_check.py

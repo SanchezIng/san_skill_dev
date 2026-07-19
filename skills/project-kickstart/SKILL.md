@@ -23,10 +23,19 @@ Convierte cualquier idea de proyecto en un kit de documentación listo para desa
 7. **progreso/estado-actual.md** — snapshot vacío que cada sesión de Claude Code actualiza al cerrar
 8. **.gitignore** y **.env.example** según el stack
 
+**Autopilotaje (el protocolo como herramienta ejecutable, no como texto que recordar):**
+
+9. **Skills del equipo** — `/que-toca` (reclamo de tareas con candado en GitHub),
+   `/cerrar-sesion` (cierre disciplinado: tests → PR → handoff → tablero) y `/verificar`
+   (demostrar que el cambio funciona de verdad), comiteadas al repo del proyecto para que
+   lleguen a todo el equipo por `git pull`
+10. **Hook `SessionStart`** — inyecta contexto de orientación al abrir cada sesión
+11. **Guardas de deriva doc↔realidad en CI** — el sistema de conocimiento se vigila solo
+
 **Opcional según tamaño:**
 
-9. **docs/adr/0001-decisiones-iniciales.md** — Architecture Decision Record (mediano/grande)
-10. **docs/threat-model.md** — modelo de amenazas ligero (mediano/grande con datos sensibles)
+12. **docs/adr/0001-decisiones-iniciales.md** — Architecture Decision Record (mediano/grande)
+13. **docs/threat-model.md** — modelo de amenazas ligero (mediano/grande con datos sensibles)
 
 **Estructura inicial mínima** del repositorio: SOLO las carpetas necesarias para la Fase 1 (o subfase F1.1). Las fases posteriores indican explícitamente qué carpetas y archivos nuevos introducen. Nunca se crea el árbol completo desde el día cero.
 
@@ -250,6 +259,43 @@ Lee `references/plantillas.md` para la estructura exacta de cada archivo. Genera
 16. `.github/workflows/ci.yml` — lint + análisis estático + tests + auditoría de deps, adaptado al stack
 17. `.github/PULL_REQUEST_TEMPLATE.md` — plantilla con módulo, tarea y checklist
 
+**Autopilotaje del protocolo (modo colaborativo; también útil en solo).** Las plantillas
+viajan JUNTO a esta skill, en el mismo paquete:
+
+```
+<paquete>/skills/equipo/*.SKILL.md     ← las 3 skills parametrizadas
+<paquete>/plantillas/hooks/            ← hook SessionStart + settings.json
+<paquete>/plantillas/ci/               ← guardas de deriva doc↔realidad
+<paquete>/plantillas/CLAUDE-fragmento.md
+```
+
+Lee el `README.md` del paquete ANTES de instanciar: trae la tabla de placeholders, el query
+para descubrir los IDs del GitHub Project y las trampas ya pagadas en el piloto. **Si no
+encuentras esas plantillas junto a la skill, dilo y sigue sin autopilotaje — NO las inventes
+de memoria**: perderías los placeholders y las lecciones, que son todo su valor. Genera:
+
+18. `.claude/skills/equipo-que-toca/SKILL.md` — reclamo de tareas (el candado entre devs)
+19. `.claude/skills/equipo-cerrar-sesion/SKILL.md` — cierre disciplinado; se niega con tests rojos
+20. `.claude/skills/equipo-verificar/SKILL.md` — runbook E2E propio del proyecto
+21. `.claude/hooks/arranque.sh` + `.claude/settings.json` — hook `SessionStart` que inyecta
+    contexto de orientación (git log, tablero del dev, último handoff)
+22. `scripts/docs_check.py` + `.github/workflows/docs-check.yml` — guardas de deriva
+    doc↔realidad (enlaces rotos, backlog `Done` con issue abierto)
+23. Copia del propio paquete portable en `SKILLS-PORTABLE/` del proyecto generado, para que
+    el kit se propague y nunca dependa de un único checkout
+
+Reglas al instanciarlo:
+
+- **Se comitean en el repo destino**, nunca se instalan como skills globales: así viajan por
+  `git pull` a todo el equipo, y no disparan contra el proyecto equivocado (las skills llevan
+  dentro los IDs del Project y los comandos del stack).
+- Rellena los placeholders con los comandos REALES del stack elegido. Los IDs del GitHub
+  Project no existen hasta crearlo: deja el paso de descubrimiento documentado en el CLAUDE.md
+  generado, como tarea de arranque.
+- `.gitignore`: `settings.local.json` (config personal de cada dev) fuera, `settings.json` dentro.
+- Pega `plantillas/CLAUDE-fragmento.md` en el CLAUDE.md generado (protocolo + reglas del
+  sistema de conocimiento + tabla de dónde vive cada tipo de conocimiento).
+
 En modo colaborativo, además: CLAUDE.md incluye la sección `## 👥 Convenciones de Equipo`, ROADMAP.md gana la columna "Módulo" y `progreso/estado-actual.md` incluye la tabla de estado por módulo. Al entregar, ofrece generar el backlog como GitHub Issues + Project con `gh` (opción B del tablero) si el usuario lo desea; se pueden usar ambos tableros (Markdown + GitHub) con uno como espejo.
 
 **Estructura inicial del repo:** crea SOLO las carpetas necesarias para la Fase 1 (o F1.1). Por ejemplo, no crees `tests/`, `migrations/`, `docs/api/` si la Fase 1 no los necesita; la guía indicará en qué fase posterior se introducen.
@@ -274,7 +320,7 @@ Usa `present_files` para entregar TODOS los archivos generados. En el mensaje fi
   4. Abrir Claude Code en la raíz del repo
   5. Decir literalmente: `"Lee CLAUDE.md y empieza la Fase 1.1"` (o `"Fase 1"` si no hay subfases)
 - Recordatorio: al cerrar cada sesión de Claude Code, actualizar `progreso/estado-actual.md` y crear el handoff doc de la subfase correspondiente
-- **En modo equipo, además:** subir el repo a GitHub/GitLab ANTES de empezar (el repo compartido es la fuente de verdad), crear el Project/tablero desde docs/backlog.md (ofrecer hacerlo con `gh`), acordar quién ejecuta la F1 compartida, y que cada dev arranque sus sesiones con: `"Lee CLAUDE.md y el handoff de mi módulo ({X}); continúo con la tarea T-{nnn}"`
+- **En modo equipo, además:** subir el repo a GitHub/GitLab ANTES de empezar (el repo compartido es la fuente de verdad), crear el Project/tablero desde docs/backlog.md — **ofrecer ejecutar la secuencia "Arranque GitHub" del README del paquete** (repo → issues → Project → IDs → colaboradores, preguntando al usuario paso a paso y explicando el beneficio de cada uno; incluye la trampa del scope `project` de `gh`) —, acordar quién ejecuta la F1 compartida, y que cada dev arranque sus sesiones con: `"Lee CLAUDE.md y el handoff de mi módulo ({X}); continúo con la tarea T-{nnn}"`
 - Ofrecer: si quiere regenerar solo un archivo después, puede pedir "regenera el README" o "actualiza el ROADMAP" — está todo guardado en `.kickstart-state.json`
 
 ## Reglas de gestión de contexto en Claude Code
