@@ -51,11 +51,26 @@ done
 
 mkdir -p "$DESTINO/.claude/hooks" "$DESTINO/scripts" "$DESTINO/.github/workflows"
 cp "$KIT/plantillas/hooks/arranque.sh" "$DESTINO/.claude/hooks/"
-[ -f "$DESTINO/.claude/settings.json" ] \
-    || cp "$KIT/plantillas/hooks/settings.json" "$DESTINO/.claude/settings.json"
+cp "$KIT/plantillas/hooks/recordar-seguridad.sh" "$DESTINO/.claude/hooks/"
+if [ -f "$DESTINO/.claude/settings.json" ]; then
+    # No se pisa un settings.json existente: puede tener config propia del dev.
+    # Pero entonces el hook PreToolUse no llega solo, y ese es justo el caso de
+    # los proyectos ya instalados — los que mas lo necesitan.
+    grep -q "recordar-seguridad" "$DESTINO/.claude/settings.json" || AVISO_HOOK=1
+else
+    cp "$KIT/plantillas/hooks/settings.json" "$DESTINO/.claude/settings.json"
+fi
 cp "$KIT/plantillas/ci/docs_check.py" "$DESTINO/scripts/"
 cp "$KIT/plantillas/ci/docs-check.yml" "$DESTINO/.github/workflows/"
-echo "OK  hook de arranque + guardas de deriva"
+echo "OK  hooks (arranque + recordatorio de seguridad) + guardas de deriva"
+
+if [ -n "${AVISO_HOOK:-}" ]; then
+    echo
+    echo "AVISO: .claude/settings.json ya existia y no se ha tocado, asi que el"
+    echo "       hook PreToolUse de secure-coding-guard NO quedo activo. Anadelo"
+    echo "       a mano copiando el bloque 'PreToolUse' de:"
+    echo "       $KIT/plantillas/hooks/settings.json"
+fi
 
 echo
 echo "FALTA (a mano, o pideselo a Claude):"
