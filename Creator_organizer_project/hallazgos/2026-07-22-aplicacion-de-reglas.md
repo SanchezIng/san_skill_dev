@@ -1,8 +1,16 @@
 # Hallazgos de uso real — 2026-07-22
 
 > Origen: sesión de trabajo en `portal-web-api-sunat`, un proyecto instalado con
-> este kit. Los tres hallazgos son **fallos de diseño del kit**, no del proyecto:
+> este kit. Los cinco hallazgos son **fallos de diseño del kit**, no del proyecto:
 > se reproducen en cualquier repo que lo instale.
+>
+> | # | Hallazgo | Severidad | Estado |
+> |---|---|---|---|
+> | 1 | `secure-coding-guard` solo se exige al reclamar tarea | 🔴 | **Corregido aquí** |
+> | 2 | Comando de auditoría prescrito sin decir qué hacer con él | 🟠 | Propuesto |
+> | 3 | El kit prescribe un espejo de un espejo | 🟠 | Propuesto |
+> | 4 | Crea las condiciones para la deriva de ramas, sin mecanismo | 🟠 | Propuesto |
+> | 5 | Declara la regla de revisión sin decir cómo se aplica | 🔴 | Propuesto |
 >
 > El patrón común es el mismo en los tres: **el kit declara una regla y confía en
 > que alguien se acuerde de cumplirla.** Cuando el kit sí tiene mecanismo
@@ -201,3 +209,117 @@ evitó confiar en 36 tests en verde que no cubrían esa propiedad. **Ninguna
 automatización habría escrito esa nota.**
 
 Automatizar el espejo, jamás el porqué.
+
+---
+
+## Hallazgo 4 🟠 — El kit crea las condiciones para la deriva de ramas y no da mecanismo
+
+**Estado: propuesto, no implementado.**
+
+### Qué pasó
+
+Un PR salió de su base el día 18 y se mergeó el 22, arrastrando **cuatro días de
+deriva**. Resultado: cuatro conflictos, uno de ellos **no mecánico** — la rama
+afirmaba un estado de tarea que ya era falso, y resolverlo con `--theirs` a
+ciegas habría metido una regresión documental en `main` con el CI en verde.
+
+Fue el mayor sumidero de tiempo de la sesión. El día 19 habría sido trivial.
+
+### La causa en el kit
+
+`trabajo_en_equipo.md` prescribe módulos reclamables trabajados **en paralelo**
+por varios devs. Eso produce estructuralmente ramas de vida larga que divergen
+entre sí — es una consecuencia del diseño, no un accidente.
+
+El kit ya envía plantillas de CI (`plantillas/ci/`), pero **ninguna vigila esa
+deriva**. Crea la condición y no da el instrumento.
+
+Además, la opción nativa de GitHub (*"Require branches to be up to date before
+merging"*) depende de protección de rama, que puede no estar disponible — ver
+Hallazgo 5. De ahí que haga falta un workflow propio.
+
+### Corrección propuesta
+
+Plantilla de workflow programado que comente en PRs cuya base esté más de N
+commits por detrás. Requisitos que importan más que el umbral:
+
+- **Un aviso por PR, no uno por ejecución.** Si spamea, se filtra y deja de leerse.
+- Umbral configurable: el número correcto depende del ritmo del equipo.
+
+---
+
+## Hallazgo 5 🔴 — El kit declara la regla de revisión sin decir cómo se aplica (ni que puede ser inaplicable)
+
+**Estado: propuesto, no implementado. Es el caso más puro del patrón.**
+
+### Qué pasó
+
+En la sesión se mergearon **ocho PRs sin la revisión de otro dev** que la regla
+exige. Ningún mecanismo lo impidió ni lo señaló. Eran documentación y fueron
+pedidos explícitamente por el lead, así que no hubo daño — pero el próximo PR con
+código entra por el mismo hueco.
+
+### La causa en el kit
+
+`trabajo_en_equipo.md` declara las dos reglas de forma tajante:
+
+- Línea 152: *"**Nadie hace push directo a main.** Todo entra por Pull Request."*
+- Línea 156: *"**Todo PR requiere >=1 revisión humana de otro dev.**"*
+
+Y **en ningún punto del kit** se menciona la protección de rama, cómo
+configurarla, ni —lo más importante— que **no está disponible en repos privados
+con plan Free**. Verificado por búsqueda en todo el documento.
+
+El resultado es una regla que el equipo cree activa y que en realidad no lo está.
+**Una regla escrita que no se cumple es peor que no tenerla**: da sensación de
+control y desgasta la credibilidad del resto del documento.
+
+Este hallazgo es el patrón en estado puro: no es que el mecanismo falle, es que
+**nunca se planteó que hiciera falta uno**.
+
+### Corrección propuesta
+
+El kit no puede decidir por el equipo —las tres salidas tienen coste distinto—
+pero sí debe **forzar la decisión** en vez de dejar la regla flotando:
+
+1. **GitHub Pro** — habilita protección en repos privados. Cuesta dinero.
+2. **Repo público** — protección gratis. Exige revisar el histórico.
+3. **Ajustar la regla** a lo que de verdad se hace (p. ej. revisión obligatoria
+   solo en PRs con código).
+
+Concretamente, en `trabajo_en_equipo.md`:
+
+- Añadir el paso de configurar la protección de rama al montar el repo, con la
+  **advertencia explícita** de la limitación del plan Free.
+- Si no se puede activar, que el kit obligue a **registrar la excepción**
+  (en el `CLAUDE.md` generado) en lugar de dejar escrita una regla inaplicable.
+- Contemplar la excepción que el propio kit ya define: los commits de
+  coordinación del tablero van directo a `main` por diseño, así que cualquier
+  protección debe permitirlos.
+
+---
+
+## Límite general: qué NO debe automatizar el kit
+
+Los cinco hallazgos empujan en la misma dirección —poner mecanismo donde solo hay
+texto—, así que conviene dejar escrito dónde para ese impulso.
+
+**No se automatizan handoffs, ADRs ni el log del tablero.** Son juicio, no
+estado. Un generador produciría texto plausible y vacío, y se perdería justo lo
+que hoy funciona mejor del kit.
+
+El criterio para distinguirlos:
+
+| Se puede generar | No se genera nunca |
+|---|---|
+| Estado de una tarea | Por qué se atascó |
+| Qué ficheros cambiaron | Qué trampa costó un intento fallido |
+| Si los tests pasan | Qué NO prueban los tests |
+
+La última fila es la que más pesa. En la sesión que originó estos hallazgos, una
+nota de handoff advertía de que la suite comparaba solo el cuerpo JSON de una
+respuesta HTTP mientras la *status line* seguía filtrando información. Gracias a
+ella se verificó la propiedad a mano en vez de confiar en 36 tests en verde.
+
+**Ninguna automatización habría escrito esa advertencia**, porque nace de un
+intento fallido, no del estado del repo. Automatizar el espejo; jamás el porqué.
