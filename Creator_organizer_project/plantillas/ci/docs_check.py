@@ -4,8 +4,18 @@
 1. Enlaces markdown relativos rotos: un doc que apunta a un archivo que ya no
    existe miente, y un doc que miente envenena a cualquier lector (humano o LLM)
    con confianza falsa.
-2. Coherencia backlog<->issues: toda tarea marcada Done en el backlog con issue
-   vinculado (#N en la cabecera) debe tenerlo cerrado (se salta sin token o sin `gh`).
+2. Coherencia backlog<->issues (se salta sin token o sin `gh`). Se adapta al modo
+   del proyecto, detectado por la presencia de `(#N)` en las cabeceras:
+
+   - Sin espejado a GitHub (ninguna tarea trae `(#N)`): el backlog es la unica
+     fuente de estado. No hay nada contra que cotejar -> la guarda se salta.
+   - Con espejado: toda T-nnn debe declarar un issue y ese issue debe existir
+     (caza tareas inventadas en el doc e issues borrados). Ademas, si el backlog
+     conserva el campo `Estado:`, una tarea `Done` obliga a issue cerrado.
+
+   Recomendacion al espejar: quitar `Estado:` del backlog y dejar el estado solo
+   en el Project. Un estado duplicado en dos sitios se desfasa, y el que se
+   desfasa es el del doc, porque ningun automatismo lo lee. Ver trabajo_en_equipo.md §6.
 
 Uso: python3 scripts/docs_check.py   (desde la raiz del repo; exit 1 si hay fallos)
 """
@@ -32,7 +42,7 @@ FENCE = re.compile(r"^(```|~~~)")
 
 # Formato del backlog que genera el kickstart (trabajo_en_equipo.md §6):
 #   ### T-014 · [B] Endpoint POST /facturas (#14)   ← (#N) al espejar como issues
-#   - Estado: Done
+#   - Estado: Done                                  ← solo si NO se espeja a GitHub
 CABECERA_TAREA = re.compile(r"### (T-\d+)\b(?:.*\(#(\d+)\))?")
 ESTADO_DONE = re.compile(r"^[-*]?\s*Estado:\s*\**\s*Done\b", re.IGNORECASE)
 
@@ -85,20 +95,34 @@ def backlog_incoherente() -> list[str]:
 
     estados = {i["number"]: i["state"] for i in json.loads(crudo)}
     contenido = (RAIZ / RUTA_BACKLOG).read_text(encoding="utf-8")
-    fallos = []
 
+    tareas = []
     for seccion in re.split(r"\n(?=### )", contenido):
         lineas = seccion.splitlines()
         m = CABECERA_TAREA.match(lineas[0]) if lineas else None
-        if not m:
-            continue
-        if not any(ESTADO_DONE.match(linea.strip()) for linea in lineas[1:]):
-            continue
-        tarea, numero = m.group(1), m.group(2)
+        if m:
+            hecha = any(ESTADO_DONE.match(l.strip()) for l in lineas[1:])
+            tareas.append((m.group(1), m.group(2), hecha))
+
+    # Modo del proyecto: si ninguna tarea declara issue, el backlog no esta
+    # espejado a GitHub y es la unica fuente de estado -> nada que cotejar.
+    if not any(numero for _, numero, _ in tareas):
+        print("(backlog sin espejar a issues: se salta la coherencia backlog<->issues)")
+        return []
+
+    fallos = []
+    for tarea, numero, hecha in tareas:
         if numero is None:
-            # Done sin issue vinculado: nada que cotejar contra GitHub.
-            continue
-        if estados.get(int(numero)) == "OPEN":
+            fallos.append(
+                f"{RUTA_BACKLOG}: {tarea} no declara su issue (#N en la cabecera)"
+            )
+        elif int(numero) not in estados:
+            fallos.append(
+                f"{RUTA_BACKLOG}: {tarea} apunta al issue #{numero}, que no existe en GitHub"
+            )
+        elif hecha and estados[int(numero)] == "OPEN":
+            # Solo aplica si el backlog conserva `Estado:` (proyectos que no
+            # migraron el estado al Project). Ver cabecera del modulo.
             fallos.append(
                 f"{RUTA_BACKLOG}: {tarea} marcada Done pero el issue #{numero} sigue OPEN"
             )

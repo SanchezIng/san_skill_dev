@@ -115,9 +115,29 @@ Tareas mapeadas desde las subfases. Formato:
 ```
 
 El `(#N)` de la cabecera es el número del issue de GitHub: se añade al espejar el
-backlog como Issues (no existe antes). La guarda de CI (`scripts/docs_check.py`) lo
-usa para cotejar que ninguna tarea `Done` tenga su issue abierto — sin `(#N)`, esa
-tarea queda fuera de la verificación.
+backlog como Issues (no existe antes).
+
+### ¿Dónde vive el estado? Dos modos
+
+**Sin espejar a GitHub** (el de arriba): el backlog es la única fuente de estado.
+Se mantiene el campo `Estado:` y se actualiza a mano. La guarda de CI detecta que
+no hay `(#N)` en ninguna tarea y se salta la coherencia — no hay contra qué cotejar.
+
+**Espejado a Issues + Project:** **quitar el campo `Estado:`** y dejar el estado
+solo en el Project. El backlog se queda como catálogo estable de módulo,
+dependencias y criterios — cosas que no caducan.
+
+> Por qué: un estado duplicado en dos sitios se desfasa, y el que se desfasa es
+> el del doc, porque ningún automatismo lo lee (`/que-toca` y `/cerrar-sesion`
+> trabajan contra el Project). En un proyecto real esto se detectó tarde: la
+> primera tarea seguía marcada `Disponible` con su fase cerrada hacía un mes,
+> y no rompió nada precisamente porque nadie la consultaba. El issue ya repite
+> dependencias y criterios, así que no se pierde información.
+
+En modo espejado la guarda de CI valida que **toda T-nnn declare un issue y que
+ese issue exista** (caza tareas inventadas en el doc e issues borrados). Si el
+backlog conserva `Estado:`, sigue exigiendo además que una tarea `Done` tenga su
+issue cerrado — los proyectos que ya lo usaban no se rompen.
 
 Una tarea está **disponible** solo si sus dependencias están Terminadas. Cada dev toma tareas disponibles de cualquier módulo no bloqueado, respetando la regla de no invadir un módulo que otro tiene En progreso (salvo tareas internas coordinadas).
 

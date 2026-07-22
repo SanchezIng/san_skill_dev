@@ -26,7 +26,8 @@
   issue o ADR en el comentario (`T-nnn/ADR-nnnn`). Regla de PR. Es la diferencia
   entre leer una función y adivinar, o saltar directo a la historia completa.
 - **Deriva vigilada:** el CI falla si la documentación referencia archivos
-  inexistentes o si el backlog marca `Done` una tarea con issue abierto.
+  inexistentes o si una tarea del backlog no declara un issue existente (y, si
+  el backlog conserva `Estado:`, si marca `Done` una tarea con issue abierto).
 - **Rotación:** log del tablero > ~400 líneas → archivar por periodo; entradas
   viejas de "actualización previa" del estado → histórico.
 - **Una sola fuente de verdad:** el conocimiento compartido vive en el repo
