@@ -33,6 +33,17 @@
   (versionado, revisado por PR). Nada de wikis paralelas ni memorias externas
   para lo que el equipo debe compartir.
 
+## ⚙️ Ejecución: no confundir éxito de la herramienta con éxito de la tarea
+
+- **Exit 0 significa "la herramienta funcionó", no "conseguí lo que quería".**
+  Antes de escribir "hecho", pregúntate qué observaste que lo demuestre; si la
+  respuesta es "el comando no dio error", no está verificado. Relee el efecto.
+- **Un salto de línea NO propaga el fallo:** el paso siguiente corre igual y el
+  exit final puede ser 0. Multi-paso → `set -euo pipefail` o encadenar con `&&`.
+- **Shell POSIX y binarios nativos no comparten mapa del disco:** una ruta válida
+  para el shell puede no serlo para el intérprete. Convertir con
+  `{{CMD_CONVERTIR_RUTA}}` antes de pasarla.
+
 ## 🗂️ Dónde vive cada cosa
 
 | Tipo de conocimiento | Dónde | Vida útil |

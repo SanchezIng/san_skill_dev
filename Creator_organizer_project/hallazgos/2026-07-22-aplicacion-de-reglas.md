@@ -1,7 +1,7 @@
 # Hallazgos de uso real — 2026-07-22
 
 > Origen: sesión de trabajo en `portal-web-api-sunat`, un proyecto instalado con
-> este kit. Los cinco hallazgos son **fallos de diseño del kit**, no del proyecto:
+> este kit. Los seis hallazgos son **fallos de diseño del kit**, no del proyecto:
 > se reproducen en cualquier repo que lo instale.
 >
 > | # | Hallazgo | Severidad | Estado |
@@ -11,6 +11,12 @@
 > | 3 | El kit prescribe un espejo de un espejo | 🟠 | Propuesto |
 > | 4 | Crea las condiciones para la deriva de ramas, sin mecanismo | 🟠 | Propuesto |
 > | 5 | Declara la regla de revisión sin decir cómo se aplica | 🔴 | Propuesto |
+> | 6 | Trata los falsos éxitos como anécdotas sueltas | 🔴 | **Corregido aquí** |
+>
+> Los 1–5 comparten un patrón: **regla declarada sin mecanismo que la aplique**.
+> El 6 es distinto y más incómodo: es un fallo en cómo el kit enseña a
+> **comprobar** que algo se hizo. Un mecanismo que verifica lo que no importa da
+> la misma falsa tranquilidad que no tener ninguno.
 >
 > El patrón común es el mismo en los tres: **el kit declara una regla y confía en
 > que alguien se acuerde de cumplirla.** Cuando el kit sí tiene mecanismo
@@ -323,3 +329,66 @@ ella se verificó la propiedad a mano en vez de confiar en 36 tests en verde.
 
 **Ninguna automatización habría escrito esa advertencia**, porque nace de un
 intento fallido, no del estado del repo. Automatizar el espejo; jamás el porqué.
+
+---
+
+## Hallazgo 6 🔴 — El kit trata los falsos éxitos como anécdotas sueltas
+
+**Estado: corregido en este PR.**
+
+### Qué pasó
+
+Un comando para actualizar la descripción de un PR reportó `PR #2 actualizado`.
+**Era falso en lo que importaba**: el script previo había muerto, el fichero
+nunca se modificó y `gh` reaplicó la descripción antigua. Se detectó solo porque
+después se releyó el contenido del PR.
+
+Tres fallos encadenados, cada uno inocuo por separado:
+
+1. **Rutas.** Un intérprete nativo recibió una ruta del shell POSIX (`/tmp/x`) y
+   la resolvió contra otro mapa del disco. El shell abría ese fichero sin
+   problema; el intérprete no.
+2. **Propagación.** Los dos comandos estaban en líneas separadas. Un salto de
+   línea es `;`, **no propaga el fallo**: el segundo corrió igual y el exit final
+   fue 0.
+3. **Verificación.** El `&&` unía el segundo comando con el mensaje de éxito, y
+   ese comando sí funcionó — solo que sobre datos viejos. El mensaje era
+   técnicamente cierto y prácticamente falso.
+
+### La causa en el kit
+
+El kit **ya sabe** que esta clase de problema existe, pero la trata como
+anécdotas dispersas, cada una en la skill donde alguien tropezó:
+
+- `cerrar-sesion.SKILL.md:42` — *"si los hooks corren en contenedor, usar timeout largo"*
+- `cerrar-sesion.SKILL.md:43` — *"`--body-file`, nunca body inline multilínea en PowerShell — se corrompe"*
+- `que-toca.SKILL.md:58` — *"lanzar desde el tool Bash, no PowerShell — las comillas se pierden"*
+
+Tres síntomas del mismo mecanismo, sin nombre común y sin la regla que los une.
+Quien lea una de ellas aprende a esquivar **ese** caso concreto, no la clase.
+
+Y lo más revelador: `verificar.SKILL.md` —la skill cuyo trabajo entero es
+*"demostrar que un cambio funciona DE VERDAD"*— **no cubría el caso**. Su
+sección "Qué NO es verificar" hablaba de mocks y happy paths, pero no de que un
+comando con exit 0 no demuestra nada sobre el objetivo.
+
+### Corrección aplicada
+
+1. **`verificar.SKILL.md`** — la regla que unifica todo: *verifica el efecto, no
+   la invocación*, con la taxonomía de los tres casos reales de la sesión (CI en
+   verde con `continue-on-error`, tests que comparaban solo el JSON, `gh` con
+   contenido viejo). En los tres el paso hizo su trabajo y el resultado era
+   falso, porque **lo comprobado no era lo que importaba**. Se añaden las tres
+   trampas de shell que producen exactamente esto.
+2. **`plantillas/CLAUDE-fragmento.md`** — versión densa (6 líneas) en el contexto
+   permanente de cada proyecto. Va aquí y no solo en la skill porque el fallo
+   ocurre **mientras se ejecutan comandos**, no cuando alguien decide verificar:
+   si solo vive en `verificar`, se lee después de haberlo cometido.
+3. **`{{CMD_CONVERTIR_RUTA}}`** añadido a la tabla de placeholders del README —
+   la conversión de rutas depende de la plataforma.
+
+### El criterio de fondo
+
+Un reporte de "hecho" debe apoyarse en algo **observado**. Un comando sin error
+no es una observación: es una ausencia de queja. La diferencia entre las dos
+cosas es todo este hallazgo.
