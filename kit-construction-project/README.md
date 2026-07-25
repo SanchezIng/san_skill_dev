@@ -31,14 +31,14 @@ SKILLS-PORTABLE/
 ### Conseguir el kit
 
 Vive en el repo-catálogo [san_skill_dev](https://github.com/SanchezIng/san_skill_dev),
-carpeta `Creator_organizer_project/`. Tres formas equivalentes — el kit es autocontenido:
+carpeta `kit-construction-project/`. Tres formas equivalentes — el kit es autocontenido:
 
 **A) Clonar el repo (temporal, no deja nada de más):**
 
 ```bash
 cd /ruta/al/proyecto
 git clone https://github.com/SanchezIng/san_skill_dev.git
-sh san_skill_dev/Creator_organizer_project/instalar.sh .
+sh san_skill_dev/kit-construction-project/instalar.sh .
 rm -rf san_skill_dev   # el instalador ya dejó el kit en SKILLS-PORTABLE/
 ```
 
@@ -48,10 +48,10 @@ Aunque el repo tenga más skills, en el proyecto solo quedan `SKILLS-PORTABLE/` 
 **B) Copiar/descargar SOLO la carpeta del kit, con cualquier nombre:**
 
 El instalador usa su propia ruta, así que el nombre y la ubicación de la carpeta de
-origen dan igual (`kit_creator_organizer_project/`, un ZIP descargado, un pendrive…):
+origen dan igual (`mi_kit/`, un ZIP descargado, un pendrive…):
 
 ```bash
-sh /donde/sea/kit_creator_organizer_project/instalar.sh /ruta/al/proyecto
+sh /donde/sea/mi_kit/instalar.sh /ruta/al/proyecto
 ```
 
 **C) Copiar `SKILLS-PORTABLE/` desde cualquier proyecto que ya la tenga.**
