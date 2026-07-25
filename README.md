@@ -9,6 +9,7 @@ las existentes.
 | Carpeta | Qué es |
 |---|---|
 | [`kit-construction-project/`](kit-construction-project/) | **Kit portable completo para arrancar proyectos**: `project-kickstart` (idea → documentación lista para desarrollar, con fases, seguridad OWASP y modo equipo), `secure-coding-guard` (guardián de seguridad al escribir código), las 3 skills del protocolo de equipo (`/que-toca`, `/cerrar-sesion`, `/verificar`), hook `SessionStart`, guardas de deriva doc↔realidad para CI e instalador. |
+| [`formater-apa7-docxs/`](formater-apa7-docxs/) | **Skill empaquetada (`.skill`) para formatear documentos en APA 7.ª edición.** Se instala importando el paquete en Claude Code. |
 
 ## Uso rápido (kit de proyectos)
 
