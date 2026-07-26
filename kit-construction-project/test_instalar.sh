@@ -43,6 +43,16 @@ sh "$KIT/instalar.sh" "$PROY" --protocolo >/dev/null 2>&1
 grep -q '^# modo=--protocolo' "$PROY/SKILLS-PORTABLE/.manifiesto"
 comprobar "el manifiesto recuerda el modo de instalacion" $?
 
+# La auditoria llega con la lista VACIA y el workflow DESACTIVADO: activarlo sin
+# rellenar el gestor solo produce un rojo que no es una vulnerabilidad, y un rojo
+# que no significa nada se aprende a ignorar.
+[ -f "$PROY/security/audit-allowlist.json" ]
+comprobar "instala la allowlist de auditoria" $?
+grep -q '"aceptados": \[\]' "$PROY/security/audit-allowlist.json"
+comprobar "la allowlist nace VACIA (nada aceptado por defecto)" $?
+[ -f "$PROY/.github/workflows/audit.yml.desactivado" ] && [ ! -f "$PROY/.github/workflows/audit.yml" ]
+comprobar "el workflow de auditoria se instala desactivado" $?
+
 # --- 2. El equipo configura su proyecto -------------------------------------
 sed -i 's|{{PREFIJO_RAMA}}|mi-modulo/mi-tarea|g; s|{{OWNER}}|MiEquipo|g' "$SKILL"
 # Y ajusta una constante de un script (configuracion que NO es un placeholder).

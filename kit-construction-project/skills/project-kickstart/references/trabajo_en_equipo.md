@@ -227,7 +227,7 @@ Añadir sección "## Convenciones de Equipo" al CLAUDE.md:
 
 ## 10. CI mínimo (.github/workflows/ci.yml)
 
-En cada PR, adaptado al stack: **lint/formato**, **análisis estático** (si el stack lo tiene maduro), **tests** (al menos del módulo tocado), **auditoría de dependencias** (modo advertencia). Además .github/PULL_REQUEST_TEMPLATE.md con: qué hace, módulo, tarea (T-nnn), checklist (tests, lint, docs, sin secrets, tablero actualizado).
+En cada PR, adaptado al stack: **lint/formato**, **análisis estático** (si el stack lo tiene maduro), **tests** (al menos del módulo tocado) y **auditoría de dependencias**. Esta última **no en modo advertencia**: va con allowlist caducable (`scripts/audit_check.py`, ver `seguridad_ampliada.md` sección 2), porque un paso que nunca rompe la build es un paso que nadie mira. Además .github/PULL_REQUEST_TEMPLATE.md con: qué hace, módulo, tarea (T-nnn), checklist (tests, lint, docs, sin secrets, tablero regenerado).
 
 ---
 

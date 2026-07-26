@@ -3,6 +3,54 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-26 (4) — El audit deja de ser decorativo
+
+**M-08.** El kit prescribía `npm audit` y compañía en el checklist de cada fase
+**sin decir qué hacer cuando encuentra algo**. Quien monta el CI se topa entonces
+con un dilema sin salida buena: bloqueante a secas deja el CI rojo desde el primer
+día por transitivas sin fix aguas arriba —y un rojo permanente enseña a ignorar el
+rojo—, y `continue-on-error` no avisa nunca. En el piloto se eligió lo segundo y
+**dos `high` vivieron días en `main` con el CI en verde**, hasta que aparecieron
+por casualidad auditando a mano durante un merge.
+
+`scripts/audit_check.py` + `security/audit-allowlist.json`: lo aceptado a sabiendas
+no bloquea, lo nuevo sí. Portado de la implementación de referencia ya en producción
+(`portal-web-api-sunat` PR #48) y parametrizado por gestor — `npm`, `pnpm`, `yarn`,
+`pip-audit`, `composer`, `cargo`.
+
+Lo que impide que degenere en un `ignore` general es que falla en **cuatro** casos,
+no solo en el obvio: vulnerabilidad sin aceptar, aceptación **caducada**, entrada
+que **ya no aparece** en el audit (se arregló aguas arriba y taparía el próximo
+aviso del mismo paquete) y vencimiento a **más de 180 días** (sin techo, la fecha se
+pone lejana y la caducidad es humo).
+
+Decisiones que definen el resto:
+
+- **La clave es el aviso (GHSA/CVE/RUSTSEC), nunca el paquete.** Verificado con un
+  caso real: `minimist` sale como `critical` de paquete pero uno de sus avisos es
+  `moderate` — aceptar por paquete taparía el `critical`.
+- **Falla cerrado**, que es lo único imperdonable aquí: si el gestor no está, si la
+  salida no es JSON o si no tiene la forma esperada, para. Probado con el error real
+  de `pnpm` sin lockfile, que de otro modo se habría leído como "sin
+  vulnerabilidades". Un falso verde en una guarda de seguridad es peor que no
+  tenerla, porque nadie vuelve a mirar.
+- **"Desconocida" no es "leve".** `pip-audit` y `cargo audit` no reportan severidad;
+  ahí todo aviso bloquea salvo aceptación explícita.
+- **La lista nace vacía y el workflow se instala desactivado.** Activarlo sin
+  rellenar el gestor produciría un rojo que no es una vulnerabilidad, que es
+  literalmente cómo se aprende a ignorar el rojo.
+- `--diagnostico` enseña lo que la guarda **leyó**, no lo que el comando imprimió.
+
+Verificado de punta a punta contra dependencias vulnerables reales
+(`lodash@4.17.15`, `minimist@0.0.8`) con `npm` y con `pnpm` — que coinciden en los
+mismos 8 avisos: bloquea los 4 bloqueantes, los acepta al declararlos, y muerde al
+caducar una entrada y al dejar una fantasma. 26 casos nuevos.
+
+Límite dicho en voz alta: solo `npm` y `pnpm` están verificados contra la
+herramienta real. `yarn`, `pip-audit`, `composer` y `cargo` van marcados como no
+verificados en el código y en el README; el fallo cerrado hace que una sorpresa de
+formato se note en vez de pasar por build limpia.
+
 ## 2026-07-26 (3) — El tablero se genera; el porqué se sigue escribiendo
 
 **M-07.** El estado de una tarea vivía duplicado a mano en el Project, en

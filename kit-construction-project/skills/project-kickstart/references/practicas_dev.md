@@ -374,8 +374,12 @@ jobs:
       - run: {{install deps}}
       - run: {{lint}}
       - run: {{test}}
-      - run: {{audit de deps}}
+      - run: python3 scripts/audit_check.py    # NO con continue-on-error
 ```
+
+El paso de auditoría **nunca** lleva `continue-on-error`: un paso que no puede
+romper la build es decorativo y nadie lo mira. Lo que hace sostenible que sea
+bloqueante es la allowlist caducable — ver `seguridad_ampliada.md` sección 2.
 
 ### CD
 

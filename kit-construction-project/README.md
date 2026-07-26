@@ -157,6 +157,7 @@ skills globales. Dos razones:
 | `{{RUTA_BACKLOG}}` | `docs/backlog.md` | estructura de docs |
 | `{{CMD_CONVERTIR_RUTA}}` | `cygpath -w <ruta>` (Windows) · `—` (Linux/macOS) | plataforma |
 | `MODO_BACKLOG` (no es placeholder: constante en `scripts/docs_check.py`) | `auto` → `espejado` al terminar de espejar | ver trabajo_en_equipo.md §6 |
+| `{{GESTOR_PAQUETES}}` (en `scripts/audit_check.py`) | `npm`, `pnpm`, `yarn`, `pip-audit`, `composer`, `cargo` | gestor de paquetes del stack |
 
 Los de `verificar.SKILL.md` describen el runbook real del proyecto y van todos
 en ese archivo. Si un nivel no aplica, **bórralo entero** en vez de dejar sus
@@ -376,6 +377,54 @@ confirmar que quedó donde debía**: que la API responda OK no significa que se
 haya movido. Eso, de paso, elimina la trampa de PowerShell de la sección
 siguiente — los valores viajan como variables de GraphQL, no como literales
 entre comillas.
+
+## Auditoría de dependencias: allowlist caducable
+
+El kit prescribía `npm audit` y compañía **sin decir qué hacer con el resultado**.
+Eso deja al equipo ante un dilema sin salida buena: bloqueante a secas → el CI
+queda rojo desde el primer día por transitivas sin fix aguas arriba, y un rojo
+permanente enseña a ignorar el rojo; `continue-on-error` → no avisa de nada nunca.
+En el piloto se eligió lo segundo y **dos `high` vivieron días en `main` con el CI
+en verde**, hasta que aparecieron por casualidad auditando a mano en un merge.
+
+`scripts/audit_check.py` + `security/audit-allowlist.json`: lo aceptado a sabiendas
+no bloquea, lo nuevo sí.
+
+```bash
+python3 scripts/audit_check.py                # la guarda (exit 1 si falla)
+python3 scripts/audit_check.py --diagnostico  # qué ha leído, sin juzgar
+```
+
+Falla en **cuatro** casos, y son los tres últimos los que impiden que degenere en
+un `ignore` general con más pasos:
+
+| Falla cuando | Por qué |
+|---|---|
+| Hay una vulnerabilidad bloqueante sin aceptar | lo nuevo para en seco |
+| Una aceptación **caducó** | sin caducidad, una excepción es permanente y deja de ser excepción |
+| Una entrada **ya no aparece** en el audit | se arregló aguas arriba; si se queda, tapa el próximo aviso de ese paquete |
+| Una fecha vence a **más de 180 días** | sin techo, se pone un año lejano y la caducidad es humo |
+
+Reglas al usarla:
+
+- La clave es el **identificador del aviso** (GHSA/CVE/RUSTSEC), nunca el paquete.
+- Cada entrada declara **motivo** (por qué no nos afecta y **cómo se comprobó**) y
+  **seguimiento** (el issue donde vive la reevaluación). "No aplica" no es motivo.
+- La lista nace vacía y el workflow se instala **desactivado**: hay que rellenar
+  `GESTOR` y el paso de instalación de dependencias del stack. Activarlo antes solo
+  produce un rojo que no es una vulnerabilidad.
+- **Falla cerrado.** Si el gestor no está, si la salida no es JSON o si no tiene la
+  forma esperada, para. No auditar no es lo mismo que no tener vulnerabilidades, y
+  un falso verde en una guarda de seguridad es peor que no tenerla.
+- Donde el audit **no reporta severidad** (`pip-audit`, `cargo audit`), todo aviso
+  bloquea salvo aceptación explícita: "desconocida" no es "leve".
+
+Adaptadores: `npm` y `pnpm` están **verificados contra la salida real** de la
+herramienta; `yarn`, `pip-audit`, `composer` y `cargo` están escritos contra el
+formato documentado y **sin verificar** — corre `--diagnostico` la primera vez y
+compara con la salida cruda del comando. Añadir uno nuevo son dos cosas: el comando
+que saca JSON y una función que lo normalice, que debe **lanzar** si no reconoce la
+forma, nunca devolver una lista vacía.
 
 ## Lecciones del piloto (ya pagadas — no las repitas)
 

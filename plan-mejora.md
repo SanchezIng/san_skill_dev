@@ -20,8 +20,8 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-05 🟠 | Límites de paginación que mienten | hecho |
 | M-06 🟠 | Smoke test de la salida del kickstart | hecho (camino 2; el 1 queda anotado) |
 | M-07 🟠 | Tablero generado en vez de a mano (hallazgo 3) | hecho |
-| **M-08** 🟠 | **Allowlist caducable para `audit` (hallazgo 2)** | **PENDIENTE — siguiente** |
-| M-09 🟠 | Deriva de ramas largas (hallazgo 4) | pendiente |
+| M-08 🟠 | Allowlist caducable para `audit` (hallazgo 2) | hecho |
+| **M-09** 🟠 | **Deriva de ramas largas (hallazgo 4)** | **PENDIENTE — la última** |
 
 Los tres 🔴 están cerrados. Todo el trabajo está **commiteado en local y sin
 publicar**: `git log origin/main..HEAD`. Antes de publicar, ver la nota abierta
@@ -307,11 +307,58 @@ se promete lo que no se puede cumplir.
 
 ## M-08 · 🟠 `npm audit` prescrito sin decir qué hacer con el resultado
 
-**Estado:** pendiente · **Origen:** hallazgo 2
+**Estado:** hecho (2026-07-26) · **Origen:** hallazgo 2
 
-Implementación de referencia ya en producción (`portal-web-api-sunat` PR #48):
-allowlist caducable que falla en cuatro casos. Portarla exige parametrizar el
-gestor de paquetes.
+El kit prescribía el comando de auditoría en el checklist de cada fase pero no
+decía qué debía pasar cuando encuentra algo. Eso deja un dilema sin salida
+buena: bloqueante a secas → CI rojo desde el día uno por transitivas sin fix
+aguas arriba, y un rojo permanente enseña a ignorar el rojo; `continue-on-error`
+→ no avisa nunca. En el piloto se eligió lo segundo y **dos `high` vivieron días
+en `main` con el CI en verde**.
+
+Portada la implementación de referencia (`portal-web-api-sunat` PR #48, escrita
+para pnpm), que era el trabajo ya pagado; lo pendiente era parametrizar el gestor.
+
+- [x] `plantillas/ci/audit_check.py` con **adaptadores por gestor**: `npm`,
+      `pnpm`, `yarn`, `pip-audit`, `composer`, `cargo`. Cada uno normaliza a un
+      aviso `(id, paquete, severidad, título, url)` y el resto de la lógica es
+      común.
+- [x] Los cuatro modos de fallo del hallazgo, cada uno con su test: sin aceptar,
+      caducada, obsoleta (ya no aparece en el audit) y vencimiento a más de 180
+      días.
+- [x] La clave es el **aviso** (GHSA/CVE/RUSTSEC), nunca el paquete. Verificado
+      con el caso real de `minimist`: el paquete sale como `critical` pero uno de
+      sus avisos es `moderate` — aceptar por paquete taparía el `critical`.
+- [x] **Falla cerrado**, que es lo único imperdonable en una guarda de seguridad:
+      gestor ausente, salida no-JSON, o forma inesperada → para. Probado con el
+      error real de `pnpm` sin lockfile, que antes se habría leído como "limpio".
+- [x] Donde el audit **no reporta severidad** (`pip-audit`, `cargo audit`), todo
+      aviso bloquea salvo aceptación explícita: tratar "desconocida" como leve
+      convertiría justo esos ecosistemas en un audit decorativo.
+- [x] La allowlist nace **vacía** y el workflow se instala **desactivado**
+      (`audit.yml.desactivado`): activarlo sin rellenar `GESTOR` ni el paso de
+      instalación de dependencias produciría un rojo que no es una
+      vulnerabilidad — y eso es literalmente cómo se aprende a ignorar el rojo.
+- [x] `--diagnostico` enseña lo que la guarda **leyó** (no lo que el comando
+      imprimió), para poder compararlo con la salida cruda: `/verificar` aplicado
+      a la propia guarda.
+- [x] 26 casos en `test_audit_check.py`, con los ejemplos de `npm` y `pnpm`
+      tomados de la salida **real** de esas herramientas.
+- [x] Documentado el "qué hacer con el resultado" donde faltaba:
+      `seguridad_ampliada.md` §2, `practicas_dev.md` §8 (el paso de CI **nunca**
+      lleva `continue-on-error`) y `trabajo_en_equipo.md` §10.
+- [x] **Verificado de punta a punta contra dependencias vulnerables reales**
+      (`lodash@4.17.15`, `minimist@0.0.8`): con `npm` y con `pnpm`, que además
+      coinciden en los mismos 8 avisos. Bloquea los 4 bloqueantes, los acepta al
+      declararlos, y muerde al caducar una entrada y al dejar una fantasma.
+
+Límite dicho en voz alta: solo `npm` y `pnpm` están verificados contra la
+herramienta real (son los que había instalados). `yarn`, `pip-audit`, `composer`
+y `cargo` están escritos contra el formato documentado, marcados como **no
+verificados** en el código y en el README, y el fallo cerrado hace que una
+sorpresa de formato se note en vez de pasar por "sin vulnerabilidades". La
+primera ejecución en un proyecto de esos ecosistemas debería confirmarse con
+`--diagnostico`.
 
 ## M-09 · 🟠 Deriva de ramas largas sin mecanismo
 

@@ -236,6 +236,20 @@ copiar "$KIT/plantillas/ci/test_docs_check.py" "$DESTINO/scripts/test_docs_check
 copiar "$KIT/plantillas/ci/docs-check.yml" "$DESTINO/.github/workflows/docs-check.yml"
 echo "OK  guardas de deriva doc<->realidad"
 
+# Auditoria de dependencias con allowlist caducable. El workflow se instala
+# DESACTIVADO: necesita que se rellene GESTOR y que se descomente la instalacion
+# de dependencias del stack. Activarlo antes de eso solo produce un rojo que no
+# es una vulnerabilidad, y un rojo que no significa nada se aprende a ignorar.
+copiar "$KIT/plantillas/ci/audit_check.py" "$DESTINO/scripts/audit_check.py"
+copiar "$KIT/plantillas/ci/test_audit_check.py" "$DESTINO/scripts/test_audit_check.py"
+copiar "$KIT/plantillas/ci/audit-allowlist.json" "$DESTINO/security/audit-allowlist.json"
+if [ ! -f "$DESTINO/.github/workflows/audit.yml" ]; then
+    copiar "$KIT/plantillas/ci/audit.yml" "$DESTINO/.github/workflows/audit.yml.desactivado"
+else
+    copiar "$KIT/plantillas/ci/audit.yml" "$DESTINO/.github/workflows/audit.yml"
+fi
+echo "OK  auditoria de dependencias (allowlist caducable)"
+
 # Guarda de integridad de main: solo sirve donde NO hay proteccion de rama.
 # Se instala desactivada para no prometer una barrera que quiza no haga falta.
 copiar "$KIT/plantillas/ci/proteccion_main.py" "$DESTINO/scripts/proteccion_main.py"

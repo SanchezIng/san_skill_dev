@@ -30,7 +30,8 @@ Convierte cualquier idea de proyecto en un kit de documentación listo para desa
    (demostrar que el cambio funciona de verdad), comiteadas al repo del proyecto para que
    lleguen a todo el equipo por `git pull`
 10. **Hook `SessionStart`** — inyecta contexto de orientación al abrir cada sesión
-11. **Guardas de deriva doc↔realidad en CI** — el sistema de conocimiento se vigila solo
+11. **Guardas de CI** — deriva doc↔realidad (el sistema de conocimiento se vigila solo) y
+    auditoría de dependencias con allowlist caducable
 
 **Opcional según tamaño:**
 
@@ -281,7 +282,11 @@ de memoria**: perderías los placeholders y las lecciones, que son todo su valor
     contexto de orientación (git log, tablero del dev, último handoff)
 22. `scripts/docs_check.py` + `.github/workflows/docs-check.yml` — guardas de deriva
     doc↔realidad (enlaces rotos, backlog `Done` con issue abierto)
-23. Copia del propio paquete portable en `SKILLS-PORTABLE/` del proyecto generado, para que
+23. `scripts/audit_check.py` + `security/audit-allowlist.json` + `.github/workflows/audit.yml`
+    — auditoría de dependencias con allowlist caducable, **sin `continue-on-error`**: lo
+    aceptado a sabiendas no bloquea y lo nuevo sí (ver `references/seguridad_ampliada.md`
+    sección 2). Rellena `GESTOR` con el gestor de paquetes del stack elegido
+24. Copia del propio paquete portable en `SKILLS-PORTABLE/` del proyecto generado, para que
     el kit se propague y nunca dependa de un único checkout
 
 Reglas al instanciarlo:
