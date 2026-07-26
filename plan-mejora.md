@@ -67,16 +67,31 @@ por modo, no en general.
 
 ## M-03 · 🔴 Protección de rama: del texto al mecanismo
 
-**Estado:** pendiente · **Origen:** hallazgo 5 · **Depende de:** M-02
+**Estado:** hecho en el kit (2026-07-26); pendiente aplicarlo a este repo ·
+**Origen:** hallazgo 5 · **Depende de:** M-02
 
 El kit afirma *"nadie hace push directo a main"* y *">=1 revisión humana"* sin
 decir en ningún sitio cómo se configura, ni que **no existe en repos privados
 con plan Free**. En el piloto se mergearon 8 PRs sin revisión y nada lo impidió.
-Este mismo repo-catálogo tampoco lo aplica.
 
-- [ ] Pasos concretos (`gh api` para reglas de protección) en el arranque GitHub.
-- [ ] Decir explícitamente la limitación del plan Free y las alternativas.
-- [ ] Aplicarlo en este repo: el kit gana credibilidad si su repo lo cumple.
+Confirmado contra este repo (`SanchezIng/san_skill_dev`, privado en Free):
+`gh api repos/{owner}/{repo}/rulesets` → `403 "Upgrade to GitHub Pro or make
+this repository public to enable this feature"`. Ni rulesets ni protección de
+rama legada.
+
+- [x] Sección "Proteger `main`" en el README: **primero el diagnóstico**
+      (`gh api …/rulesets`), luego la opción que toque.
+- [x] Opción A (preventiva): ruleset completo por `gh api`, con la trampa de
+      trabajar solo (GitHub no deja aprobar tu propio PR → `count: 0`).
+- [x] Opción B (detectiva): `proteccion-main.yml` + `proteccion_main.py`, que
+      denuncia en CI todo commit que llegue a `main` sin PR aprobado. Se instala
+      **desactivado** (`.desactivado`) para no prometer una barrera que quizá no
+      haga falta. 8 tests, ambos sentidos.
+- [x] Tabla explícita de que **detectar no es prevenir**: no se finge equivalencia.
+- [x] `trabajo_en_equipo.md` §9.2 deja de enunciar la regla a secas y apunta al
+      mecanismo, con el diagnóstico previo.
+- [ ] **Decisión pendiente (tuya):** repo público / GitHub Pro / asumir barrera
+      detectiva. Hasta entonces este repo sigue sin cumplir lo que el kit predica.
 
 ## M-04 · 🟠 El candado depende de IDs pegados a mano, sin validación
 

@@ -166,10 +166,86 @@ gh auth refresh -s project       # TRAMPA COMÚN: el token normal NO trae scope 
 5. **Colaboradores (si hay equipo):** `gh api repos/{owner}/{repo}/collaborators/{usuario} -X PUT`
    (les llega invitación por email) y darles acceso al Project. Beneficio: cada dev
    clona y su Claude ya trae el protocolo completo.
+6. **Proteger `main`** (ver sección siguiente). Beneficio: es el **único** mecanismo
+   que de verdad impide mergear sin revisión; sin él, las reglas "nadie hace push
+   directo" y ">=1 revisión" son texto que se cumple por buena voluntad.
 
 Si el usuario prefiere hacerlo a mano o más tarde, respetar la decisión: el paso de
 los IDs queda documentado como tarea de arranque en el CLAUDE.md generado y cualquier
 sesión futura lo detectará pendiente (placeholders `{{…}}` sin rellenar en `/que-toca`).
+
+## Proteger `main`: primero averigua si puedes
+
+**Antes de prometer nada al equipo, comprueba la disponibilidad.** No es universal:
+
+```bash
+gh api repos/{owner}/{repo}/rulesets
+```
+
+- Responde con una lista (aunque sea vacía) → **puedes**. Ve a la opción A.
+- Responde `403 "Upgrade to GitHub Pro or make this repository public to enable
+  this feature"` → **no puedes**: el repo es privado en plan Free. Opción B.
+
+> Esta es la trampa que se llevó por delante al piloto: el kit exigía revisión
+> humana sin decir en ningún sitio cómo se aplica ni que pudiera no estar
+> disponible. Se mergearon 8 PRs sin revisar y nada lo señaló.
+
+### Opción A — Protección de rama (preventiva: el push se rechaza)
+
+```bash
+gh api repos/{owner}/{repo}/rulesets -X POST --input - <<'JSON'
+{
+  "name": "main protegida",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false,
+        "allowed_merge_methods": ["merge", "squash", "rebase"]
+      }
+    }
+  ]
+}
+JSON
+```
+
+**Trabajando solo:** GitHub no te deja aprobar tu propio PR, así que
+`required_approving_review_count: 1` te bloquea a ti mismo. Pon `0` — sigues
+teniendo el PR obligatorio y el CI como puerta, que es el 80% del valor — y súbelo
+a `1` en cuanto entre el segundo dev.
+
+**Si activas esto, el proyecto debe estar en modo espejado** (candado en GitHub).
+En modo "solo tablero markdown" el reclamo necesita push directo a `main` y esta
+regla lo rompe. Ver `trabajo_en_equipo.md` §9.
+
+### Opción B — Guarda de CI (detectiva: el push entra y se denuncia)
+
+Para repos privados en plan Free. `plantillas/ci/proteccion-main.yml` +
+`proteccion_main.py`: en cada push a `main`, todo commit que no venga de un PR
+con al menos una aprobación deja el CI en rojo, nombrando el commit y el autor.
+
+**No es equivalente y no hay que fingir que lo sea:**
+
+| | Protección de rama | Guarda de CI |
+|---|---|---|
+| El push directo | se **rechaza** | entra, y se **denuncia** |
+| Requiere | repo público o GitHub Pro | nada |
+| Se puede ignorar | no | sí, si nadie mira el CI |
+
+Configurable en la cabecera del script: `PREFIJOS_PERMITIDOS` (los commits del
+tablero en modo sin Project) y `EXIGIR_REVISION`.
+
+Las tres salidas para un proyecto serio, en orden: hacer el repo **público**,
+pagar **GitHub Pro**, o asumir que la barrera es detectiva y no preventiva —
+decisión explícita, no un olvido.
 
 ## Paso obligatorio: descubrir los IDs del Project
 

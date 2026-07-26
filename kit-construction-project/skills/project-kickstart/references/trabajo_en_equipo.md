@@ -199,6 +199,14 @@ Añadir sección "## Convenciones de Equipo" al CLAUDE.md:
    directo es obligatorio: entonces la protección total de `main` **no es compatible**,
    y hay que decirlo en vez de recomendar las dos cosas a la vez.
 2. **Todo PR requiere >=1 revisión humana de otro dev.** Regla con IA: *"respondes por lo que tu Claude Code generó"* — si no puedes explicar una línea, no se mergea.
+
+   **Esta regla necesita mecanismo o no existe.** Escrita y sin aplicar es peor que
+   no tenerla: da sensación de control y desgasta la credibilidad del resto. Los dos
+   mecanismos, y cuál te toca, están en el README del kit ("Proteger `main`"):
+   protección de rama si el repo lo permite (el push se rechaza), o la guarda de CI
+   `proteccion-main.yml` si es privado en plan Free (el push entra y se denuncia).
+   Comprueba cuál tienes con `gh api repos/{owner}/{repo}/rulesets` **antes** de
+   prometerle la regla al equipo.
 3. **PRs pequeños** (< ~400 líneas de diff). Subfase grande = varios PRs.
 4. **CI verde obligatorio** para mergear (sección 10).
 5. **Reclamar antes de codificar** (tablero) — la regla central de convivencia.

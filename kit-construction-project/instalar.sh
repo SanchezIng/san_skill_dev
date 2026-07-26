@@ -85,6 +85,13 @@ cp "$KIT/plantillas/ci/test_docs_check.py" "$DESTINO/scripts/"
 cp "$KIT/plantillas/ci/docs-check.yml" "$DESTINO/.github/workflows/"
 echo "OK  guardas de deriva doc<->realidad"
 
+# Guarda de integridad de main: solo sirve donde NO hay proteccion de rama.
+# Se instala desactivada para no prometer una barrera que quiza no haga falta.
+cp "$KIT/plantillas/ci/proteccion_main.py" "$DESTINO/scripts/"
+cp "$KIT/plantillas/ci/test_proteccion_main.py" "$DESTINO/scripts/"
+cp "$KIT/plantillas/ci/proteccion-main.yml" "$DESTINO/.github/workflows/proteccion-main.yml.desactivado"
+echo "OK  guarda de integridad de main (desactivada: ver abajo)"
+
 echo
 echo "FALTA (a mano, o pideselo a Claude):"
 echo "  1. Rellenar los {{PLACEHOLDERS}} de las 3 skills — tabla en el README del kit."
@@ -92,5 +99,11 @@ echo "  2. Descubrir los IDs del GitHub Project (query en el README) y pegarlos 
 echo "     .claude/skills/equipo-que-toca/SKILL.md."
 echo "  3. Pegar plantillas/CLAUDE-fragmento.md en el CLAUDE.md del proyecto."
 echo "  4. Anadir .claude/settings.local.json al .gitignore y COMITEAR todo lo demas."
+echo "  5. Proteger main. Averigua primero cual te toca:"
+echo "       gh api repos/{owner}/{repo}/rulesets"
+echo "     Lista       -> proteccion de rama (el push se rechaza). README, opcion A."
+echo "     Error 403   -> privado en plan Free: activa la guarda de CI renombrando"
+echo "                    .github/workflows/proteccion-main.yml.desactivado sin el"
+echo "                    sufijo (el push entra, pero se denuncia). README, opcion B."
 grep -rho '{{[A-Z_]*}}' "$DESTINO/.claude/skills/equipo-"*/SKILL.md | sort -u | tr '\n' ' '
 echo
