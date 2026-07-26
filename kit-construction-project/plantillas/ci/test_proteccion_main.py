@@ -81,12 +81,18 @@ def caso(nombre):
     return envoltorio
 
 
-def api_simulada(prs_por_commit=None, revisiones_por_pr=None):
-    """prs_por_commit: {sha_corto_o_'*': [{'number': N}]}; ausente = sin PR."""
+def api_simulada(prs_por_commit=None, revisiones_por_pr=None, colaboradores=None):
+    """prs_por_commit: {sha_corto_o_'*': [{'number': N}]}; ausente = sin PR.
+
+    `colaboradores`: lista de dicts como los de la API, o `None` para simular
+    que la consulta no se pudo hacer.
+    """
     prs_por_commit = prs_por_commit or {}
     revisiones_por_pr = revisiones_por_pr or {}
 
     def _api(ruta: str):
+        if "/collaborators" in ruta:
+            return colaboradores
         if "/pulls/" in ruta and ruta.endswith("/reviews"):
             numero = int(ruta.split("/pulls/")[1].split("/")[0])
             return revisiones_por_pr.get(numero, [])
@@ -213,13 +219,82 @@ def _(tmp):
     con_pr = repo.commit("feat: por PR sin aprobar")
     mod = cargar(tmp)
     mod.EXIGIR_REVISION = False
-    mod._api = api_simulada({con_pr: [{"number": 4}]}, {4: COMENTADO})
+    mod._api = api_simulada({con_pr: [{"number": 4}]}, {4: COMENTADO},
+                            colaboradores=[{"login": "solo", "type": "User"}])
     assert mod.revisar(base, con_pr) == [], mod.revisar(base, con_pr)
 
+    # Y aun asi, un push directo sigue muriendo: se relaja la revision, no el PR.
     sin_pr = repo.commit("fix: directo a main")
-    mod._api = api_simulada({con_pr: [{"number": 4}]}, {4: COMENTADO})
     fallos = mod.revisar(con_pr, sin_pr)
     assert len(fallos) == 1 and "push directo" in fallos[0], fallos
+
+
+# --- La excepcion de trabajar en solitario caduca sola -----------------------
+#
+# El agujero que cierran estos casos no es tecnico, es humano: "acuerdate de
+# subir EXIGIR_REVISION cuando entre alguien" es exactamente la clase de regla
+# sin mecanismo que este kit existe para eliminar.
+
+@caso("SEGUNDO DEV con EXIGIR_REVISION=False: MUERDE y dice quienes son")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: algo")
+    mod = cargar(tmp)
+    mod.EXIGIR_REVISION = False
+    mod._api = api_simulada({"*": [{"number": 4}]}, colaboradores=[
+        {"login": "ana", "type": "User"}, {"login": "luis", "type": "User"}])
+    fallos = mod.revisar(base, sha)
+    assert len(fallos) == 1, fallos
+    assert "ana, luis" in fallos[0], fallos
+    assert "EXIGIR_REVISION = True" in fallos[0], "hay que decir exactamente que hacer"
+    assert "media barrera" in fallos[0]
+
+
+@caso("los BOTS no cuentan como segundo dev (dependabot no revisa nada)")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: algo")
+    mod = cargar(tmp)
+    mod.EXIGIR_REVISION = False
+    mod._api = api_simulada({"*": [{"number": 4}]}, colaboradores=[
+        {"login": "solo", "type": "User"},
+        {"login": "dependabot[bot]", "type": "Bot"},
+        {"login": "renovate[bot]", "type": "User"}])   # type mal puesto: vale el sufijo
+    assert mod.revisar(base, sha) == [], mod.revisar(base, sha)
+
+
+@caso("no se pudo consultar colaboradores: AVISA, no tumba el CI")
+def _(tmp):
+    import contextlib
+    import io
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: algo")
+    mod = cargar(tmp)
+    mod.EXIGIR_REVISION = False
+    mod._api = api_simulada({"*": [{"number": 4}]}, colaboradores=None)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        fallos = mod.revisar(base, sha)
+    # Es una comprobacion de CONFIGURACION, no un veredicto de seguridad: una
+    # falsa alarma aqui ensena a ignorar el rojo, que es lo contrario del fin.
+    assert fallos == [], fallos
+    assert "AVISO" in buf.getvalue(), buf.getvalue()
+
+
+@caso("con EXIGIR_REVISION=True ni se pregunta por los colaboradores")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: algo")
+    mod = cargar(tmp)
+    consultas = []
+    mod._api = lambda ruta: (consultas.append(ruta) or
+                             ([{"number": 4}] if ruta.endswith("/pulls") else APROBADO))
+    mod.revisar(base, sha)
+    assert not any("collaborators" in r for r in consultas), consultas
 
 
 def main() -> int:

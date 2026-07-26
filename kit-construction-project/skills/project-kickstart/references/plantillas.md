@@ -169,7 +169,7 @@ Handoff doc de la última subfase completada. LEER SIEMPRE al arrancar.
 
 ### Archivos cortos
 
-**Regla:** ningún archivo de código supera ~300 líneas. Si se acerca, divide por responsabilidad.
+**Preferencia, no tope:** ~300 líneas por archivo de código. Superarlo está bien si el archivo lo pide (una máquina de estados, un parser, un test de tabla). Lo que se divide es lo que tiene **varias responsabilidades** dentro — aunque sean 200 líneas. Partir algo cohesionado solo para cumplir la cifra deja dos archivos que hay que leer juntos.
 
 ### Naming
 
@@ -332,7 +332,7 @@ _Versión del documento: 2.0_
 |----|-----------|-------------|
 | RNF-01 | Rendimiento | ... |
 | RNF-02 | Disponibilidad | ... |
-| RNF-03 | Mantenibilidad | Archivos < 300 líneas; naming consistente |
+| RNF-03 | Mantenibilidad | Archivos ~300 líneas de referencia (no tope duro); naming consistente |
 {{...}}
 
 ## 5. SEGURIDAD
@@ -421,7 +421,7 @@ Ver `docs/threat-model.md`.
 
 - Conventional Commits obligatorio
 - Pre-commit hooks: linter, formatter, secrets scanner
-- Archivos < 300 líneas
+- Archivos ~300 líneas como referencia (se supera si el archivo lo pide)
 - Naming consistente (ver CLAUDE.md)
 - {{Branching strategy}}
 

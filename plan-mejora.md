@@ -37,9 +37,28 @@ Todo el trabajo está **commiteado en local y sin publicar**:
    `main`: el propio kit dice que todo entra por PR.
 
 Lo que sigue abierto **dentro** de mejoras ya cerradas, dicho donde toca y no
-escondido: el `--dry-run` del kickstart (M-06, camino 1), la ventana entre dos
-generaciones del tablero (M-07) y los cuatro adaptadores de audit sin verificar
-contra su herramienta real (M-08).
+escondido: la ventana entre dos generaciones del tablero (M-07) y los cuatro
+adaptadores de audit sin verificar contra su herramienta real (M-08).
+
+**2026-07-26 (tarde)** — se cerraron dos huecos que estaban anotados como
+límites, más un ajuste de criterio pedido por el usuario:
+
+- **M-06 · el agujero de cobertura grande.** `kickstart_check.py` validaba la
+  plantilla; ahora `verificar_kit.py` valida **el kit generado**, en el Paso 10 y
+  antes de entregarlo. No es el `--dry-run` del camino 1 —ejecutar Claude en CI
+  no es posible— pero cubre lo que aquel buscaba: que la salida real tenga lo
+  prometido, sin placeholders sueltos ni enlaces a documentos que no se
+  escribieron. 21 casos.
+- **M-03/M-08 · las guardas que llegan desactivadas.** Dependían de que alguien
+  se acordara de activarlas, que es la clase de regla que este plan existe para
+  eliminar. Dos mecanismos: el hook de arranque las recuerda **cada sesión** con
+  el comando exacto y desaparece solo al decidir (13 casos), y
+  `proteccion_main.py` detecta la llegada de un **segundo colaborador humano** y
+  exige subir `EXIGIR_REVISION` en vez de confiar en la memoria (4 casos nuevos).
+- **Regla de las ~300 líneas:** pasa de tope duro a **preferencia**. Superarla
+  está bien si el archivo lo pide; lo que se divide es lo que tiene varias
+  responsabilidades dentro, aunque tenga 200 líneas. Partir algo cohesionado solo
+  para cumplir la cifra deja dos archivos que hay que leer juntos.
 
 Para retomar: todas las suites deben estar verdes antes de tocar nada. Las corre
 enteras `.github/workflows/kit.yml`; en local, sus nueve pasos.

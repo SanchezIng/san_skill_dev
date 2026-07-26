@@ -3,6 +3,52 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-26 (6) — Se cierran los dos huecos que quedaban anotados
+
+No son mejoras nuevas del plan: son los dos límites que las mejoras ya cerradas
+dejaban por escrito, y que al resumir el kit resultaron ser los que más pesaban.
+
+**Verificar la salida, no solo la plantilla.** `kickstart_check.py` comprueba que
+la skill no prometa lo que sus plantillas no describen — eso valida la
+*plantilla*. Lo que nadie validaba es la *generación*. Ejecutar Claude en CI no es
+posible, así que la salida no es un `--dry-run`: es
+`skills/project-kickstart/verificar_kit.py`, que se ejecuta **en el Paso 10,
+antes de entregar**, y comprueba contra `.kickstart-state.json` que estén los
+archivos que esa entrevista obligaba a generar (núcleo, equipo si hay 2+ devs,
+ADR si es mediano/grande), que no quede ningún `{{PLACEHOLDER}}`, que los enlaces
+resuelvan y que CLAUDE.md traiga sus tres secciones útiles. Verifica **el
+artefacto en el momento en que se produce**, que es cuando el error todavía es
+gratis. 21 casos, incluidos los que impiden acusar en falso: un placeholder
+dentro de un bloque de código es un ejemplo, y un kit en inglés no se juzga con
+títulos en español.
+
+**Las guardas desactivadas dejan de depender de la memoria.** `audit.yml` y
+`proteccion-main.yml` se instalan desactivadas a propósito (activarlas sin
+configurar produce un rojo que no es un fallo, y un rojo que no significa nada se
+aprende a ignorar). Pero "acuérdate de activarla" no es un mecanismo — es
+justamente lo que este kit existe para eliminar. Ahora:
+
+- El **hook de arranque** las lista en cada sesión, con el prerrequisito de cada
+  una y el `git mv` exacto, y **desaparece solo** al decidir. También ofrece la
+  otra salida: borrarla, porque dejarla ahí es una decisión sin tomar.
+- `proteccion_main.py` **detecta la llegada de un segundo colaborador humano** y
+  exige subir `EXIGIR_REVISION`. La excepción de trabajar en solitario existía
+  porque GitHub no deja aprobar el PR propio; ahora caduca sola en vez de esperar
+  a que alguien lo recuerde. Los bots no cuentan (dependabot no revisa nada), y
+  si la API no responde **avisa sin tumbar el CI**: es una comprobación de
+  configuración, no un veredicto de seguridad, y una falsa alarma aquí enseña a
+  ignorar el rojo.
+
+**La regla de las ~300 líneas pasa de tope a preferencia.** Superarla está bien
+cuando el archivo lo pide —una máquina de estados, un parser, un test de tabla
+que se lee mejor de corrido—; lo que no vale es superarla por inercia. El criterio
+real es cuántas responsabilidades conviven dentro, no el número: se divide algo de
+200 líneas con tres responsabilidades, y no se parte uno cohesionado de 500 solo
+para cumplir la cifra, porque eso deja dos archivos que hay que leer juntos.
+
+Diez suites, **199 casos**. La guarda de este repo se actualizó **injertando** la
+mejora sin tocar su configuración propia — la lección de M-01 aplicada a mano.
+
 ## 2026-07-26 (5) — El kit da el instrumento para el problema que él crea
 
 **M-09, y con ella el plan queda cerrado.** El kit prescribe módulos reclamables

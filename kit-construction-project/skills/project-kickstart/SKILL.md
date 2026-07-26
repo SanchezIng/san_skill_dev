@@ -266,8 +266,9 @@ viajan JUNTO a esta skill, en el mismo paquete:
 ```
 <paquete>/skills/equipo/*.SKILL.md     ← las 3 skills parametrizadas
 <paquete>/plantillas/hooks/            ← hook SessionStart + settings.json
-<paquete>/plantillas/ci/               ← guardas de deriva doc↔realidad
+<paquete>/plantillas/ci/               ← guardas de CI (deriva, auditoría, main, ramas)
 <paquete>/plantillas/CLAUDE-fragmento.md
+<paquete>/skills/project-kickstart/verificar_kit.py   ← verifica lo generado (Paso 10)
 ```
 
 Lee el `README.md` del paquete ANTES de instanciar: trae la tabla de placeholders, el query
@@ -318,6 +319,16 @@ Si el usuario eligió "Markdown + Word", genera primero los .md y luego conviert
 
 ### Paso 10 — Entrega y guía de arranque
 
+**ANTES de entregar nada, verifica lo generado:**
+
+```bash
+python3 <paquete>/skills/project-kickstart/verificar_kit.py <directorio-generado>
+```
+
+Comprueba contra `.kickstart-state.json` que estén los archivos que esta entrevista obligaba a generar, que no quede ningún `{{PLACEHOLDER}}` sin rellenar, que los enlaces entre documentos resuelvan y que CLAUDE.md traiga sus secciones (mapa, archivos críticos, indicador de cierre). Si sale en rojo, **arregla y repite**: un documento prometido y no escrito aparece semanas después, cuando alguien lo busca porque el índice lo cita, y para entonces el proyecto ya se apoyó en él.
+
+Si el script no está (paquete incompleto), dilo y haz esas cuatro comprobaciones a mano — no entregues sin comprobar.
+
 Usa `present_files` para entregar TODOS los archivos generados. En el mensaje final incluye:
 
 - Resumen de cada archivo y para qué sirve
@@ -335,7 +346,7 @@ Usa `present_files` para entregar TODOS los archivos generados. En el mensaje fi
 
 Estas reglas se aplican AL DISEÑAR las fases/subfases y los archivos generados. Para detalles, lee `references/contexto_claude_code.md`.
 
-1. **Archivos cortos por defecto.** Convención del proyecto: ningún archivo de código supera ~300 líneas. Si lo hace, se divide.
+1. **Archivos cortos por defecto.** Convención del proyecto: **preferir ~300 líneas** por archivo de código. No es un tope duro: superarlo está bien cuando el archivo lo pide (una máquina de estados, un parser, un test de tabla que se lee mejor de corrido). Lo que no vale es superarlo **por inercia** — si son varias responsabilidades conviviendo, se divide. Partir un archivo cohesionado solo para cumplir un número deja algo peor: dos archivos que hay que leer juntos.
 2. **Naming predecible.** Convenciones de nombres claras y consistentes para que Claude Code encuentre archivos rápido (ej: `services/auth.ts`, no `services/handler_v2_final.ts`).
 3. **Cada subfase = una sesión.** El handoff doc resume qué se hizo y qué viene.
 4. **Indicador de cierre de sesión.** En CLAUDE.md incluir: "Si llevas más de ~60% de tu contexto usado, cierra esta sesión: actualiza `progreso/estado-actual.md`, crea/actualiza el handoff doc de la subfase, y empieza una sesión nueva."

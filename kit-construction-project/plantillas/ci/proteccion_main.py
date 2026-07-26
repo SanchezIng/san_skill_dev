@@ -37,6 +37,13 @@ PREFIJOS_PERMITIDOS: tuple[str, ...] = ("chore(tablero):",)
 
 # Exigir >=1 aprobacion humana en el PR de origen. La regla del kit es
 # "respondes por lo que tu Claude Code genero": sin revision, no se mergea.
+#
+# Se puede poner en False trabajando en SOLITARIO, porque GitHub no deja aprobar
+# tu propio PR y si no la guarda seria inaplicable. Pero eso caduca solo: en
+# cuanto entra un segundo colaborador humano, esta guarda EXIGE volver a True
+# (ver `revision_desactivada_con_equipo`). "Acuerdate de subirlo cuando entre
+# alguien" no es un mecanismo: es la clase de regla que este kit existe para
+# eliminar.
 EXIGIR_REVISION = True
 
 SHA_NULO = "0" * 40
@@ -75,8 +82,51 @@ def _es_merge(sha: str) -> bool:
     return len(_git("log", "-1", "--format=%P", sha).split()) > 1
 
 
+def _humanos_con_acceso() -> list[str] | None:
+    """Colaboradores humanos del repo. `None` = no se pudo consultar.
+
+    Son los que PODRIAN aprobar un PR: la pregunta que decide si `EXIGIR_REVISION`
+    en False sigue estando justificado. Los bots (dependabot y compañia) no
+    cuentan — no revisan nada.
+    """
+    datos = _api("repos/{owner}/{repo}/collaborators?per_page=100")
+    if datos is None:
+        return None
+    return sorted(
+        c["login"] for c in datos
+        if c.get("type") != "Bot" and not c.get("login", "").endswith("[bot]")
+    )
+
+
+def revision_desactivada_con_equipo() -> list[str]:
+    """La excusa de trabajar en solitario caduca cuando deja de ser cierto."""
+    if EXIGIR_REVISION:
+        return []
+    humanos = _humanos_con_acceso()
+    if humanos is None:
+        # Aviso, no fallo: esto es una comprobacion de configuracion, no un
+        # veredicto de seguridad. Poner el CI en rojo porque la API de
+        # colaboradores no respondio seria una falsa alarma, y las falsas
+        # alarmas es lo que ensena a ignorar el rojo.
+        print("(AVISO: EXIGIR_REVISION=False y no se pudo comprobar si sigues "
+              "en solitario. Si ya hay mas gente en el repo, subelo a True.)")
+        return []
+    if len(humanos) < 2:
+        return []
+    return [
+        f"EXIGIR_REVISION=False pero el repo ya tiene {len(humanos)} colaboradores "
+        f"humanos ({', '.join(humanos)}).\n"
+        f"        Esa excepcion existia solo para trabajar en solitario, porque "
+        f"GitHub no deja aprobar el PR propio.\n"
+        f"        Ya no es el caso: pon EXIGIR_REVISION = True en "
+        f"scripts/proteccion_main.py.\n"
+        f"        Mientras siga en False, esta guarda exige PR pero NO revision "
+        f"— media barrera que aparenta ser entera."
+    ]
+
+
 def revisar(antes: str, ahora: str) -> list[str]:
-    fallos: list[str] = []
+    fallos: list[str] = revision_desactivada_con_equipo()
     for sha in commits_nuevos(antes, ahora):
         asunto = _asunto(sha)
         corto = sha[:8]
