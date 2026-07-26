@@ -65,11 +65,46 @@ La especificación menciona qué se usará y cómo se accede en runtime.
 - **Pinning de versiones.** En `package.json` / `requirements.txt` / `Cargo.toml` se fijan versiones exactas (`1.2.3`), no rangos abiertos (`^1.2.3`, `>=1.0`)
 - Usar lockfile: `package-lock.json`, `poetry.lock`, `Cargo.lock`, `Gemfile.lock` — comiteado al repo
 - Comando de auditoría en el checklist de CADA fase:
-  - Node: `npm audit --audit-level=high`
+  - Node: `npm audit --audit-level=high` (o `pnpm audit`, `yarn npm audit`)
   - Python: `pip-audit` o `safety check`
+  - PHP: `composer audit`
   - Rust: `cargo audit`
   - Ruby: `bundle audit`
   - Go: `govulncheck ./...`
+
+### Qué hacer cuando el audit encuentra algo (esto es la parte que importa)
+
+Prescribir el comando sin decir qué hacer con el resultado deja al equipo ante un
+dilema sin salida buena: **bloqueante a secas** deja el CI rojo desde el primer día
+por transitivas sin fix aguas arriba —y un rojo permanente enseña a ignorar el
+rojo—, y **`continue-on-error`** no avisa nunca de nada. En el piloto se eligió lo
+segundo y dos `high` vivieron días en `main` con el CI en verde.
+
+La salida es una **allowlist caducable**: `scripts/audit_check.py` +
+`security/audit-allowlist.json` (plantillas en `plantillas/ci/` del paquete). Lo
+aceptado a sabiendas no bloquea; lo nuevo sí. Falla en **cuatro** casos, y son los
+tres últimos los que impiden que degenere en un `ignore` general:
+
+1. Vulnerabilidad bloqueante que no está en la lista.
+2. Entrada **caducada** — obliga a reevaluar; sin caducidad una excepción es permanente.
+3. Entrada que **ya no aparece** en el audit — se arregló aguas arriba y sobra; si se
+   queda, tapa el próximo aviso del mismo paquete.
+4. Vencimiento a **más de 180 días** — sin techo, la fecha se pone lejana y la
+   caducidad no significa nada.
+
+Reglas que hay que respetar al usarla:
+
+- La clave es el **identificador del aviso** (GHSA/CVE/RUSTSEC), nunca el nombre del
+  paquete: silenciar `sharp` en bloque taparía su próximo CVE.
+- Cada entrada declara **motivo** (por qué no nos afecta y cómo se comprobó) y
+  **seguimiento** (el issue donde vive la reevaluación). "No aplica" no es un motivo.
+- La lista nace **vacía**. Aceptar algo es una decisión de seguridad, no un trámite
+  para poner el build en verde.
+- Si el audit no se puede ejecutar o su salida no se entiende, la guarda **falla
+  cerrado**: no auditar no es lo mismo que no tener vulnerabilidades.
+- En ecosistemas cuyo audit **no reporta severidad** (`pip-audit`, `cargo audit`),
+  todo aviso bloquea salvo aceptación explícita. Tratar "desconocida" como leve
+  convertiría justo esos ecosistemas en un audit decorativo.
 - Revisión obligatoria antes de añadir una librería nueva:
   - ¿Está mantenida? (último commit < 12 meses)
   - ¿Cuántos downloads/stars?

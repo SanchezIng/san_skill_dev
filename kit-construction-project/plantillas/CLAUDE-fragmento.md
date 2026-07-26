@@ -13,9 +13,19 @@
 > que el cambio funciona de verdad. Un hook `SessionStart` inyecta contexto de
 > orientación al arrancar. Lo de abajo queda como referencia de lo que hacen.
 >
-> **Excepción al "todo por PR":** los commits de coordinación del tablero
-> (`progreso/tablero-equipo.md`) van directo a `main` — son coordinación, no código;
-> el reclamo de una tarea debe verse al instante. Todo lo demás entra por PR.
+> **Todo entra por PR, sin excepciones.** El reclamo de una tarea sí debe verse al
+> instante, y por eso el candado vive en GitHub (assignee + estado del Project):
+> es atómico y visible al segundo, sin necesidad de empujar nada. El tablero del
+> repo (`progreso/tablero-equipo.md`) es un **espejo generado** de eso
+> (`python3 scripts/tablero.py --generar`) y viaja en la rama, dentro del PR —
+> llegar unos minutos tarde no rompe nada, porque nadie decide mirándolo. Así
+> `main` puede estar protegida al 100%.
+>
+> **La tabla del tablero no se edita a mano; el log de reclamos no se genera nunca.**
+> Estado → se genera. Por qué se atascó algo → lo escribes tú.
+>
+> *(Si este proyecto NO usa GitHub Project, el tablero es el candado y sí va directo
+> a `main`; entonces `main` no puede protegerse del todo. Un modo u otro, no ambos.)*
 
 ## 📜 Reglas del sistema de conocimiento
 
@@ -26,12 +36,29 @@
   issue o ADR en el comentario (`T-nnn/ADR-nnnn`). Regla de PR. Es la diferencia
   entre leer una función y adivinar, o saltar directo a la historia completa.
 - **Deriva vigilada:** el CI falla si la documentación referencia archivos
-  inexistentes o si el backlog marca `Done` una tarea con issue abierto.
+  inexistentes o si una tarea del backlog apunta a un issue que no existe (y, si
+  el backlog conserva `Estado:`, si marca `Done` una tarea con issue abierto).
+  El rigor lo fija `MODO_BACKLOG` en `scripts/docs_check.py`; la guarda se prueba
+  a sí misma en CI (`scripts/test_docs_check.py`) antes de juzgar el repo.
 - **Rotación:** log del tablero > ~400 líneas → archivar por periodo; entradas
   viejas de "actualización previa" del estado → histórico.
 - **Una sola fuente de verdad:** el conocimiento compartido vive en el repo
   (versionado, revisado por PR). Nada de wikis paralelas ni memorias externas
   para lo que el equipo debe compartir.
+
+## ⚙️ Ejecución: no confundir éxito de la herramienta con éxito de la tarea
+
+- **Exit 0 significa "la herramienta funcionó", no "conseguí lo que quería".**
+  Antes de escribir "hecho", pregúntate qué observaste que lo demuestre; si la
+  respuesta es "el comando no dio error", no está verificado. Relee el efecto.
+- **Un salto de línea NO propaga el fallo:** el paso siguiente corre igual y el
+  exit final puede ser 0. Multi-paso → `set -euo pipefail` o encadenar con `&&`.
+- **Shell POSIX y binarios nativos no comparten mapa del disco:** una ruta válida
+  para el shell puede no serlo para el intérprete. Convertir con
+  `{{CMD_CONVERTIR_RUTA}}` antes de pasarla.
+- **Toda lista viene con tope y no avisa** (`gh` trae 30 por defecto). Si vas a
+  concluir "no hay ninguno" o "está libre", pide más de lo que esperas y mira si
+  te devolvieron exactamente el límite: entonces hay más y no los estás viendo.
 
 ## 🗂️ Dónde vive cada cosa
 

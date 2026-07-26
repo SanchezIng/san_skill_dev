@@ -1,0 +1,56 @@
+# Auditoria de dependencias con allowlist caducable.
+#
+# NO se usa `continue-on-error`. Ese es justo el patron que este workflow viene a
+# sustituir: con el paso decorativo, dos `high` vivieron dias en `main` con el CI
+# en verde y se descubrieron por casualidad. Lo aceptado a sabiendas se declara en
+# security/audit-allowlist.json y no bloquea; lo nuevo para la build.
+#
+# ANTES DE ACTIVARLO: rellena GESTOR en scripts/audit_check.py y añade aqui el
+# paso de instalacion de dependencias de tu stack (abajo hay ejemplos). Sin
+# lockfile instalado, el audit no puede correr — y entonces la guarda falla
+# CERRADO, que es lo correcto pero deja el CI rojo por un motivo que no es una
+# vulnerabilidad.
+name: Auditoria de dependencias
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Una vulnerabilidad nueva no espera a que alguien abra un PR: el audit se
+    # ejecuta tambien sobre codigo que no ha cambiado.
+    - cron: "0 6 * * 1"
+
+jobs:
+  auditoria:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # La guarda se prueba a si misma antes de juzgar el repo: una guarda rota
+      # que dice "todo OK" es peor que no tenerla.
+      - name: Tests de la propia guarda
+        run: python3 scripts/test_audit_check.py
+
+      # --- Instalacion de dependencias (descomenta la de tu stack) ------------
+      #
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: "22", cache: "npm" }
+      # - run: npm ci
+      #
+      # - uses: pnpm/action-setup@v4
+      #   with: { version: 10 }
+      # - run: pnpm install --frozen-lockfile
+      #
+      # - uses: actions/setup-python@v5
+      #   with: { python-version: "3.12" }
+      # - run: pip install -r requirements.txt pip-audit
+      #
+      # - uses: shivammathur/setup-php@v2
+      #   with: { php-version: "8.3" }
+      # - run: composer install --no-interaction --no-progress
+
+      - name: Vulnerabilidades nuevas o aceptaciones caducadas
+        run: python3 scripts/audit_check.py

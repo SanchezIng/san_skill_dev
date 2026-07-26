@@ -1,0 +1,43 @@
+# Aviso de deriva en ramas de vida larga.
+#
+# El kit prescribe modulos reclamables trabajados EN PARALELO, y eso produce
+# estructuralmente ramas que divergen. En el piloto, un PR con cuatro dias de
+# retraso costo cuatro conflictos, uno de ellos NO mecanico: la rama afirmaba un
+# estado que ya era falso, y resolverlo a ciegas habria metido una regresion
+# documental en main con el CI en verde.
+#
+# La opcion nativa ("Require branches to be up to date before merging") depende
+# de la proteccion de rama, que en repos privados con plan Free NO existe. De ahi
+# este workflow.
+#
+# Esto NO bloquea nada: es un aviso, y comenta UNA vez por PR (despues edita ese
+# mismo comentario). Un bot que notifica cada pasada se filtra, y un aviso
+# filtrado no es un aviso.
+#
+# Ajusta UMBRAL_COMMITS en scripts/deriva_ramas.py al ritmo del equipo. Y antes
+# de activarlo, pruebalo sin efectos:  python3 scripts/deriva_ramas.py --simular
+name: Deriva de ramas
+
+on:
+  schedule:
+    # Dos veces por semana. A diario es ruido; una vez al mes llega tarde.
+    - cron: "0 7 * * 1,4"
+  workflow_dispatch:
+
+jobs:
+  deriva:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write     # el aviso es un comentario en el PR
+    steps:
+      - uses: actions/checkout@v4
+
+      # La guarda se prueba a si misma antes de comentarle nada a nadie.
+      - name: Tests de la propia guarda
+        run: python3 scripts/test_deriva_ramas.py
+
+      - name: Avisar en los PRs que se han quedado atras
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/deriva_ramas.py

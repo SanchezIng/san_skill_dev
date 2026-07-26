@@ -22,6 +22,18 @@ fallo como bloqueo explícito en el handoff y se avisa al dev — nunca cierre s
 - Tests rojos → arreglar antes de seguir (o declarar el bloqueo, ver regla dura).
 - Si el cambio toca {{AREAS_CRITICAS}}: correr también `/verificar` (smoke E2E real).
 
+**Checkpoint de seguridad (segunda red).** Si la sesión tocó código y
+**`secure-coding-guard` no se aplicó**, aplícala AHORA antes de cerrar, y anota
+su resumen (qué se aseguró, hallazgos por severidad, pendientes) en el handoff.
+
+No des por hecho que ya se hizo: la skill se salta con facilidad cuando el
+trabajo **no entró por `/que-toca`** — mergear un PR aprobado, resolver
+conflictos, revisar código ajeno, un hotfix, o retomar tras una pausa. En esos
+casos nadie pasó por el paso que la exige. Haber hecho comprobaciones de
+seguridad sueltas sobre la marcha **no cuenta como haberla aplicado**: sus
+`references/` existen para no depender de qué se le ocurra mirar a quien esté
+al mando.
+
 ## Paso 2 — Commit y PR
 
 1. Stage **explícito** de los archivos de la tarea (nunca `git add -A`: puede arrastrar
@@ -37,22 +49,40 @@ fallo como bloqueo explícito en el handoff y se avisa al dev — nunca cierre s
 
 ## Paso 3 — Documentar el estado
 
-1. **`progreso/estado-actual.md`**: actualizar la fila del módulo y, si el hito lo
-   amerita, la cabecera de "Última actualización".
+1. **`progreso/estado-actual.md`**: lo que **solo** se sabe por haber trabajado —
+   decisiones vivas, deudas anotadas, convenciones que cambiaron — y la cabecera de
+   "Última actualización". **No lleva tabla de estado por módulo:** eso está en el
+   tablero, que se genera. Una instantánea copiada a mano de otra instantánea a mano
+   es la que produjo tres derivas en dos días.
 2. **Handoff** `progreso/fase-{n}.{m}-{modulo}.md` (o el del área): qué quedó hecho,
    qué quedó a medias, **trampas descubiertas**, y el siguiente paso concreto.
    TODOs pendientes → SIEMPRE al handoff (y si sobreviven a la subfase → abrir issue).
 3. Estos dos archivos van **en el PR** (documentan el cambio), no directo a main.
 
-## Paso 4 — Tablero y Project (coordinación, directo a main)
+## Paso 4 — Tablero y Project
 
-1. `git checkout main && git pull`, actualizar `progreso/tablero-equipo.md`:
-   fila del módulo + línea de log (`- YYYY-MM-DD {dev} abre PR #N (T-nnn/#issue) — {resumen}`).
-2. `git commit -m "chore(tablero): T-nnn en Review (PR #N)" && git push origin main`.
-3. Mover el item del Project (IDs en `/que-toca`): a **Review** al abrir PR;
-   a **Terminado** al mergear. Poner en **Disponible** los items cuyas dependencias
-   quedaron cumplidas ("Depende de" en cada issue) y reflejarlo en el tablero.
-4. Volver a la rama de trabajo si la sesión continúa.
+1. **El estado real se mueve en el Project** (IDs en `/que-toca`): a **Review** al
+   abrir el PR; a **Terminado** al mergear. Poner en **Disponible** los items cuyas
+   dependencias quedaron cumplidas ("Depende de" en cada issue). Esto es lo que ve el
+   equipo y lo que leen las skills: hazlo aunque no toques el tablero.
+2. `progreso/tablero-equipo.md`: **regenerarlo, no editarlo** — el Project ya tiene el
+   estado nuevo del punto 1, así que la tabla sale de ahí:
+
+   ```bash
+   python3 scripts/tablero.py --generar
+   ```
+
+   Añade línea al log (`- YYYY-MM-DD {dev} abre PR #N (T-nnn/#issue) — {resumen}`)
+   **solo si aporta algo que el Project no dice**: por qué se atascó, qué trampa
+   costó un intento fallido. Eso no lo escribe ninguna automatización. Todo ello va
+   **en la rama de la tarea, dentro del PR** — es un espejo del Project, no una fuente
+   de verdad, así que no justifica saltarse la protección de `main`.
+
+> **Excepción — proyecto SIN GitHub Project:** el tablero es el único registro, la
+> tabla se mantiene a mano (no hay de dónde generarla) y sí va directo a `main`
+> (`git checkout main && git pull` → editar → commit → push), volviendo después a la
+> rama de trabajo. En ese modo `main` no puede estar protegida del todo.
+> Ver `trabajo_en_equipo.md` §9.
 
 ## Paso 5 — Reporte final al dev
 

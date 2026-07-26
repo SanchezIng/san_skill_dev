@@ -25,15 +25,17 @@ Este archivo se lee cuando el proyecto tiene **2 o más desarrolladores** (modo 
 
 ### Catálogo de módulos (docs/equipo.md)
 
-En vez de una matriz "modulo->dev fija", se genera un **catálogo con estado**:
+En vez de una matriz "modulo->dev fija", un **catálogo de lo que no cambia cada día**: qué es cada módulo, por dónde se toca y de qué depende.
 
-| Módulo | Frontera (interfaz) | Depende de | Estado | Trabajando |
-|--------|---------------------|------------|--------|-----------|
-| A — {nombre} | {Service/contrato} | — | Disponible | — |
-| B — {nombre} | {Service/contrato} | A (interfaz X) | Bloqueado por A | — |
-| C — {nombre} | {Service/contrato} | — | Disponible | — |
+| Módulo | Label | Frontera (interfaz) | Depende de |
+|--------|-------|---------------------|------------|
+| A — {nombre} | `modulo:A` | {Service/contrato} | — |
+| B — {nombre} | `modulo:B` | {Service/contrato} | A (interfaz X) |
+| C — {nombre} | `modulo:C` | {Service/contrato} | — |
 
-Estados posibles: **Disponible** · **En progreso** (+ quién) · **Bloqueado** (+ por qué) · **Terminado**.
+**Sin columna de estado ni de quién trabaja en qué**: eso cambia varias veces al día y vive en el Project, con su espejo generado en el tablero (sección 3). Un catálogo con estado a mano es una copia más que se desfasa — y cuando dos copias discrepan, quien lee no tiene forma de saber cuál manda.
+
+El **label** de la tabla es el que lee el generador del tablero para agrupar por módulo: si un issue no lo lleva, su tarea sale bajo `(sin módulo)`.
 
 ---
 
@@ -43,34 +45,41 @@ Se generan **ambos** mecanismos; el equipo elige cuál usar al arrancar (o usa l
 
 ### Opción A — Markdown en el repo: progreso/tablero-equipo.md
 
-Cero setup, funciona offline. Estructura:
+Cero setup, funciona offline. Dos partes con reglas distintas:
 
 ```markdown
-# Tablero del Equipo — actualizar ANTES de empezar y AL terminar
+# Tablero del Equipo
+
+<!-- TABLERO GENERADO por scripts/tablero.py --generar · NO EDITAR A MANO -->
 
 ## Módulos
-| Módulo | Estado | Dev | Desde |
-|--------|--------|-----|-------|
-| A — Emisión | En progreso | Félix | 2026-07-05 |
-| B — Plataforma API | Disponible | — | — |
-| C — Procesos async | Bloqueado por A | — | — |
+| Módulo | Estado | Devs con tarea abierta | Abiertas / total |
+|---|---|---|---|
+| A | En progreso | felix | 3 / 8 |
 
-## Tareas en curso (dentro de módulos)
+## Tareas abiertas
 | Tarea | Módulo | Dev | Estado |
-|-------|--------|-----|--------|
-| T-014 Endpoint /facturas | B | — | Disponible |
+|---|---|---|---|
+| T-014 Endpoint /facturas (#14) | B | — | Disponible |
 
-## Log de reclamos (append-only, evita disputas)
-- 2026-07-05 Félix reclama Módulo A
+<!-- FIN DEL TABLERO GENERADO · lo de abajo es tuyo -->
+
+## Log de reclamos (append-only, A MANO — esto no se genera nunca)
+- 2026-07-05 Félix reclama Módulo A; la frontera con B queda en el contrato de
+  `EmisionService`, acordado en la daily
 ```
 
-**Regla anti-conflictos:** el log es *append-only* (solo se añaden líneas al final) para minimizar merge-conflicts. Si dos editan la tabla a la vez y colisiona, se aceptan ambas filas y se reconcilia el estado mirando el log.
+**La tabla se genera; el log jamás.** La tabla es un hecho mecánico (quién tiene qué, en qué columna) y sale del Project con `python3 scripts/tablero.py --generar`. Lo que nadie teclea no puede desviarse. El log es causalidad —por qué una tarea se atascó, qué trampa costó un intento fallido, qué acuerdo se tomó al partir un módulo— y ninguna automatización escribiría esas líneas: se **añaden** al final (append-only, minimiza merge-conflicts) y no se borran.
+
+Si el generador falla, **no se arregla la tabla a mano**: no escribe nada y lo dice. Se corrige en el Project y se regenera. Y si el archivo no lleva las marcas (tablero heredado, escrito a mano), el generador **se niega a tocarlo** y explica cómo adoptarlo: nunca pisa lo que escribió una persona.
+
+**Sin GitHub Project** no hay de dónde generar: ahí la tabla se mantiene a mano y **es** el candado (ver §9).
 
 ### Opción B — GitHub Project + Issues
 
-Sin merge-conflicts, visual. Columnas: Disponible -> En progreso -> Review -> Terminado. Cada módulo es un **milestone** o label; cada tarea un Issue con su dependencia (bloqueado por #N). Reclamar = autoasignarse el Issue y moverlo a "En progreso". Se ofrece generarlo con `gh` al final del kickstart.
+Sin merge-conflicts, visual. Columnas: Disponible -> En progreso -> Review -> Terminado. Cada tarea es un Issue con su dependencia (bloqueado por #N) y su módulo como **label `modulo:A`** (esa es la que lee el generador; el milestone se usa para la fase). Reclamar = autoasignarse el Issue y moverlo a "En progreso". Se ofrece generarlo con `gh` al final del kickstart.
 
-**Si usan ambos:** GitHub es la verdad para tareas; tablero-equipo.md queda como resumen rápido de módulos que se actualiza en el mismo PR que cierra trabajo.
+**Si usan ambos:** GitHub es la verdad para tareas y `tablero-equipo.md` es su espejo **generado**, que viaja en el PR que cierra el trabajo. Espejo generado y fuente son redundancia que se paga sola: leer un fichero es local y gratis, y el hook de arranque puede inyectar un fichero pero no una query.
 
 ---
 
@@ -95,7 +104,7 @@ Al aplicar el Paso 8 (división en subfases):
 3. **F1 es siempre compartida y secuencial** (repo, entorno/Docker, CI, esqueleto de módulos e interfaces). La ejecuta **un** dev (el "integrador" de arranque) para no chocar en el andamiaje. Solo tras F1 se abre el catálogo de módulos para reclamar.
 4. Cada fase cierra con un **hito de integración**: los módulos se conectan sin mocks y se prueba el flujo completo (el "demo" del equipo).
 
-Handoff docs **por módulo**: progreso/fase-{n}.{m}-{modulo}.md. progreso/estado-actual.md incluye la tabla de estado por módulo (espejo del tablero).
+Handoff docs **por módulo**: progreso/fase-{n}.{m}-{modulo}.md. `progreso/estado-actual.md` **no lleva tabla de estado por módulo**: el estado vive en el Project y su espejo generado es el tablero. Una instantánea copiada a mano de otra instantánea a mano no añade información — añade una tercera respuesta posible a la misma pregunta. `estado-actual.md` se queda con lo que solo él tiene: decisiones vivas, deudas técnicas y convenciones que cambiaron.
 
 ---
 
@@ -111,13 +120,44 @@ Tareas mapeadas desde las subfases. Formato:
   - [ ] Request validado
   - [ ] Test de integración pasa
   - [ ] Documentado en OpenAPI
-- Estado: Disponible | En progreso | Review | Done
 ```
 
 El `(#N)` de la cabecera es el número del issue de GitHub: se añade al espejar el
-backlog como Issues (no existe antes). La guarda de CI (`scripts/docs_check.py`) lo
-usa para cotejar que ninguna tarea `Done` tenga su issue abierto — sin `(#N)`, esa
-tarea queda fuera de la verificación.
+backlog como Issues (no existe antes).
+
+### ¿Dónde vive el estado? Tres modos
+
+El campo `Estado:` **solo aparece en el modo local**; el formato de arriba es el
+de un proyecto espejado, que es el recomendado. Se declara en
+`scripts/docs_check.py` con `MODO_BACKLOG`, para que la guarda de CI no tenga que
+adivinarlo:
+
+| `MODO_BACKLOG` | El estado vive en | Qué exige la guarda de CI |
+|---|---|---|
+| `local` | el campo `Estado:` del backlog | nada que cotejar: se salta |
+| `auto` *(por defecto)* | transición: se está espejando | comprueba las tareas que ya declaran `(#N)`; **avisa** de las que faltan sin tumbar el CI |
+| `espejado` | el GitHub Project | **toda** T-nnn declara un issue y ese issue existe |
+
+**Espejado a Issues + Project** es el destino: **quitar el campo `Estado:`** y
+dejar el estado solo en el Project. El backlog se queda como catálogo estable de
+módulo, dependencias y criterios — cosas que no caducan.
+
+> Por qué: un estado duplicado en dos sitios se desfasa, y el que se desfasa es
+> el del doc, porque ningún automatismo lo lee (`/que-toca` y `/cerrar-sesion`
+> trabajan contra el Project). En un proyecto real esto se detectó tarde: la
+> primera tarea seguía marcada `Disponible` con su fase cerrada hacía un mes,
+> y no rompió nada precisamente porque nadie la consultaba. El issue ya repite
+> dependencias y criterios, así que no se pierde información.
+
+**Por qué `auto` no es estricto:** los issues se crean uno a uno (paso 2 del
+arranque de GitHub). Si la guarda exigiera `(#N)` en todas en cuanto existe la
+primera, el CI se pondría rojo en mitad del arranque — el momento en que el
+equipo menos entiende por qué. `auto` valida lo verificable y avisa del resto;
+**al terminar de espejar se pasa a `espejado`**, que es donde la regla muerde.
+
+Si el backlog conserva `Estado:` (proyecto que aún no migró), la guarda sigue
+exigiendo además que una tarea `Done` tenga su issue cerrado — no se rompe nada
+de lo que ya funcionaba.
 
 Una tarea está **disponible** solo si sus dependencias están Terminadas. Cada dev toma tareas disponibles de cualquier módulo no bloqueado, respetando la regla de no invadir un módulo que otro tiene En progreso (salvo tareas internas coordinadas).
 
@@ -149,11 +189,33 @@ Si el dominio lo pide, se puede **añadir un módulo nuevo** al catálogo (ej. u
 
 Añadir sección "## Convenciones de Equipo" al CLAUDE.md:
 
-1. **Nadie hace push directo a main.** Todo entra por Pull Request. **Única excepción:**
-   los commits de coordinación del tablero (`progreso/tablero-equipo.md`) van directo a
-   main — son coordinación, no código, y el reclamo de una tarea debe ser visible para
-   todo el equipo al instante (así operan `/que-toca` y `/cerrar-sesion`).
+1. **Nadie hace push directo a main.** Todo entra por Pull Request. La regla exacta
+   **depende de dónde viva el candado de reclamo**, y los dos modos son incompatibles
+   entre sí: elige uno.
+
+   | | **Con GitHub Project** (recomendado) | **Solo tablero markdown** |
+   |---|---|---|
+   | El candado es | assignee del issue + estado del Project | `progreso/tablero-equipo.md` |
+   | Visible al instante | sí, sin push | solo tras `push origin main` |
+   | El tablero del repo es | un **resumen**: viaja en la rama, entra con el PR | la **fuente de verdad**: va directo a `main` |
+   | ¿Se puede proteger `main`? | **sí, al 100%, sin excepciones** | no del todo: hay que permitir ese push |
+
+   **Por qué importa:** el reclamo tiene que ser instantáneo —si pasara por un PR, dos
+   devs reclamarían la misma tarea mientras se mergea—. Pero con Project **ya lo es**:
+   `gh issue edit --add-assignee` es atómico y visible al segundo. Mandar además el
+   tablero a `main` es sincronizar un resumen al precio de dejar la rama sin proteger
+   para siempre. Sin Project, en cambio, el tablero es lo único que hay y el push
+   directo es obligatorio: entonces la protección total de `main` **no es compatible**,
+   y hay que decirlo en vez de recomendar las dos cosas a la vez.
 2. **Todo PR requiere >=1 revisión humana de otro dev.** Regla con IA: *"respondes por lo que tu Claude Code generó"* — si no puedes explicar una línea, no se mergea.
+
+   **Esta regla necesita mecanismo o no existe.** Escrita y sin aplicar es peor que
+   no tenerla: da sensación de control y desgasta la credibilidad del resto. Los dos
+   mecanismos, y cuál te toca, están en el README del kit ("Proteger `main`"):
+   protección de rama si el repo lo permite (el push se rechaza), o la guarda de CI
+   `proteccion-main.yml` si es privado en plan Free (el push entra y se denuncia).
+   Comprueba cuál tienes con `gh api repos/{owner}/{repo}/rulesets` **antes** de
+   prometerle la regla al equipo.
 3. **PRs pequeños** (< ~400 líneas de diff). Subfase grande = varios PRs.
 4. **CI verde obligatorio** para mergear (sección 10).
 5. **Reclamar antes de codificar** (tablero) — la regla central de convivencia.
@@ -165,7 +227,9 @@ Añadir sección "## Convenciones de Equipo" al CLAUDE.md:
 
 ## 10. CI mínimo (.github/workflows/ci.yml)
 
-En cada PR, adaptado al stack: **lint/formato**, **análisis estático** (si el stack lo tiene maduro), **tests** (al menos del módulo tocado), **auditoría de dependencias** (modo advertencia). Además .github/PULL_REQUEST_TEMPLATE.md con: qué hace, módulo, tarea (T-nnn), checklist (tests, lint, docs, sin secrets, tablero actualizado).
+Trabajar módulos en paralelo produce **estructuralmente** ramas de vida larga que divergen entre sí: es consecuencia del diseño, no un accidente, y el equipo que lo adopta hereda el problema. `scripts/deriva_ramas.py` avisa en los PRs que se han quedado más de N commits por detrás de su base (`.github/workflows/deriva-ramas.yml`, dos veces por semana). Comenta **una vez por PR** y luego edita ese mismo comentario: un bot que notifica en cada pasada se filtra, y un aviso filtrado no es un aviso. La opción nativa de GitHub ("Require branches to be up to date") depende de la protección de rama, que puede no estar disponible (§9.2).
+
+En cada PR, adaptado al stack: **lint/formato**, **análisis estático** (si el stack lo tiene maduro), **tests** (al menos del módulo tocado) y **auditoría de dependencias**. Esta última **no en modo advertencia**: va con allowlist caducable (`scripts/audit_check.py`, ver `seguridad_ampliada.md` sección 2), porque un paso que nunca rompe la build es un paso que nadie mira. Además .github/PULL_REQUEST_TEMPLATE.md con: qué hace, módulo, tarea (T-nnn), checklist (tests, lint, docs, sin secrets, tablero regenerado).
 
 ---
 
@@ -173,13 +237,13 @@ En cada PR, adaptado al stack: **lint/formato**, **análisis estático** (si el 
 
 | Archivo | Contenido |
 |---------|-----------|
-| docs/equipo.md | Catálogo de módulos con estado, fronteras, reglas de convivencia, metodología |
+| docs/equipo.md | Catálogo de módulos: label, fronteras, dependencias, reglas de convivencia, metodología (sin estado) |
 | docs/backlog.md | Backlog inicial con tareas, dependencias y estado (sección 6) |
-| progreso/tablero-equipo.md | Tablero vivo en Markdown (sección 3, opción A) |
+| progreso/tablero-equipo.md | Tablero vivo: tabla generada + log a mano (sección 3, opción A) |
 | .github/workflows/ci.yml | CI mínimo según stack |
 | .github/PULL_REQUEST_TEMPLATE.md | Plantilla de PR con checklist |
 
-Modificaciones a archivos núcleo: **CLAUDE.md** gana "## Convenciones de Equipo"; **guia_desarrollo.md** etiqueta subfases por módulo con dependencias, paralelizables e hitos; **ROADMAP.md** añade columna "Módulo"; **estado-actual.md** añade tabla de estado por módulo. Al entregar, ofrecer generar el backlog como GitHub Issues + Project con `gh`.
+Modificaciones a archivos núcleo: **CLAUDE.md** gana "## Convenciones de Equipo"; **guia_desarrollo.md** etiqueta subfases por módulo con dependencias, paralelizables e hitos; **ROADMAP.md** añade columna "Módulo". **estado-actual.md** NO gana tabla de estado por módulo (ver sección 5). Al entregar, ofrecer generar el backlog como GitHub Issues + Project con `gh`.
 
 ---
 
