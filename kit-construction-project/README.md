@@ -21,10 +21,17 @@ SKILLS-PORTABLE/
 │       ├── cerrar-sesion.SKILL.md  cierre disciplinado (se niega con tests rojos)
 │       └── verificar.SKILL.md      demostrar que funciona de verdad
 └── plantillas/
-    ├── hooks/                  Hook SessionStart: contexto de orientación al arrancar
+    ├── hooks/                  SessionStart: contexto de orientación al arrancar.
+    │                           PreToolUse: recuerda secure-coding-guard al tocar
+    │                           código (con su test — un hook silencioso es
+    │                           indistinguible de uno roto).
     ├── ci/                     Guardas de deriva doc↔realidad para CI
     └── CLAUDE-fragmento.md     Bloque a pegar en el CLAUDE.md generado
 ```
+
+> Los mecanismos del kit (hooks y guardas) llevan tests al lado y se prueban en
+> los dos sentidos: que dejan pasar lo correcto y que **muerden** lo incorrecto.
+> Un mecanismo que nunca se ha visto fallar no está verificado.
 
 ## Uso
 
@@ -119,6 +126,7 @@ skills globales. Dos razones:
 | `{{CMD_LINT}}` | `./vendor/bin/pint --test --dirty` | stack |
 | `{{CMD_ESTATICO}}` | `./vendor/bin/phpstan analyse` | stack |
 | `{{RUTA_BACKLOG}}` | `docs/backlog.md` | estructura de docs |
+| `{{CMD_CONVERTIR_RUTA}}` | `cygpath -w <ruta>` (Windows) · `—` (Linux/macOS) | plataforma |
 | `{{SMOKE_E2E}}`, `{{AREAS_CRITICAS}}`, `{{CRITERIO_EXITO}}`… | — | el flujo real del proyecto (ver `verificar.SKILL.md`) |
 
 ## Arranque GitHub (Claude lo ejecuta, el usuario decide)

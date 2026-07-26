@@ -33,6 +33,36 @@ if [ "$KIT" != "$(cd "$DESTINO" && pwd)/SKILLS-PORTABLE" ]; then
     echo "OK  SKILLS-PORTABLE/ (el kickstart busca aqui sus plantillas)"
 fi
 
+# --- Siempre: los hooks ---
+# El recordatorio de seguridad va con el GUARDIAN, no con el protocolo de
+# equipo: la skill se salta igual en un proyecto de un solo dev cuando el
+# trabajo entra por una puerta imprevista (merge, conflicto, hotfix, revision).
+mkdir -p "$DESTINO/.claude/hooks"
+cp "$KIT/plantillas/hooks/arranque.sh" "$DESTINO/.claude/hooks/"
+cp "$KIT/plantillas/hooks/recordar-seguridad.sh" "$DESTINO/.claude/hooks/"
+# El test viaja con el hook: un hook silencioso es indistinguible de un hook
+# roto, asi que el equipo tiene que poder comprobarlo en su maquina.
+cp "$KIT/plantillas/hooks/test_recordar-seguridad.sh" "$DESTINO/.claude/hooks/"
+if [ -f "$DESTINO/.claude/settings.json" ]; then
+    # No se pisa un settings.json existente: puede tener config propia del dev.
+    # Pero entonces el hook PreToolUse no llega solo, y ese es justo el caso de
+    # los proyectos ya instalados — los que mas lo necesitan.
+    grep -q "recordar-seguridad" "$DESTINO/.claude/settings.json" || AVISO_HOOK=1
+else
+    cp "$KIT/plantillas/hooks/settings.json" "$DESTINO/.claude/settings.json"
+fi
+echo "OK  hooks (arranque + recordatorio de seguridad)"
+
+if [ -n "${AVISO_HOOK:-}" ]; then
+    echo
+    echo "AVISO: .claude/settings.json ya existia y no se ha tocado, asi que el"
+    echo "       hook PreToolUse de secure-coding-guard NO quedo activo. Anadelo"
+    echo "       a mano copiando el bloque 'PreToolUse' de:"
+    echo "       $KIT/plantillas/hooks/settings.json"
+    echo "       Comprueba luego que avisa de verdad:"
+    echo "       sh .claude/hooks/test_recordar-seguridad.sh"
+fi
+
 if [ "$MODO" != "--protocolo" ]; then
     echo
     echo "Listo. Abre Claude Code en $DESTINO y di \"tengo una idea...\"."
@@ -49,13 +79,10 @@ for nombre in que-toca cerrar-sesion verificar; do
     echo "OK  .claude/skills/equipo-$nombre/SKILL.md"
 done
 
-mkdir -p "$DESTINO/.claude/hooks" "$DESTINO/scripts" "$DESTINO/.github/workflows"
-cp "$KIT/plantillas/hooks/arranque.sh" "$DESTINO/.claude/hooks/"
-[ -f "$DESTINO/.claude/settings.json" ] \
-    || cp "$KIT/plantillas/hooks/settings.json" "$DESTINO/.claude/settings.json"
+mkdir -p "$DESTINO/scripts" "$DESTINO/.github/workflows"
 cp "$KIT/plantillas/ci/docs_check.py" "$DESTINO/scripts/"
 cp "$KIT/plantillas/ci/docs-check.yml" "$DESTINO/.github/workflows/"
-echo "OK  hook de arranque + guardas de deriva"
+echo "OK  guardas de deriva doc<->realidad"
 
 echo
 echo "FALTA (a mano, o pideselo a Claude):"
