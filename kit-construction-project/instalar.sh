@@ -250,6 +250,14 @@ else
 fi
 echo "OK  auditoria de dependencias (allowlist caducable)"
 
+# Aviso de deriva en ramas largas. Se instala ACTIVO: no necesita configuracion
+# para funcionar (el umbral tiene un valor razonable) y su unico efecto es
+# comentar en PRs propios. Ajustar UMBRAL_COMMITS al ritmo del equipo.
+copiar "$KIT/plantillas/ci/deriva_ramas.py" "$DESTINO/scripts/deriva_ramas.py"
+copiar "$KIT/plantillas/ci/test_deriva_ramas.py" "$DESTINO/scripts/test_deriva_ramas.py"
+copiar "$KIT/plantillas/ci/deriva-ramas.yml" "$DESTINO/.github/workflows/deriva-ramas.yml"
+echo "OK  aviso de deriva de ramas"
+
 # Guarda de integridad de main: solo sirve donde NO hay proteccion de rama.
 # Se instala desactivada para no prometer una barrera que quiza no haga falta.
 copiar "$KIT/plantillas/ci/proteccion_main.py" "$DESTINO/scripts/proteccion_main.py"

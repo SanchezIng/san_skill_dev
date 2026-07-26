@@ -227,6 +227,8 @@ Añadir sección "## Convenciones de Equipo" al CLAUDE.md:
 
 ## 10. CI mínimo (.github/workflows/ci.yml)
 
+Trabajar módulos en paralelo produce **estructuralmente** ramas de vida larga que divergen entre sí: es consecuencia del diseño, no un accidente, y el equipo que lo adopta hereda el problema. `scripts/deriva_ramas.py` avisa en los PRs que se han quedado más de N commits por detrás de su base (`.github/workflows/deriva-ramas.yml`, dos veces por semana). Comenta **una vez por PR** y luego edita ese mismo comentario: un bot que notifica en cada pasada se filtra, y un aviso filtrado no es un aviso. La opción nativa de GitHub ("Require branches to be up to date") depende de la protección de rama, que puede no estar disponible (§9.2).
+
 En cada PR, adaptado al stack: **lint/formato**, **análisis estático** (si el stack lo tiene maduro), **tests** (al menos del módulo tocado) y **auditoría de dependencias**. Esta última **no en modo advertencia**: va con allowlist caducable (`scripts/audit_check.py`, ver `seguridad_ampliada.md` sección 2), porque un paso que nunca rompe la build es un paso que nadie mira. Además .github/PULL_REQUEST_TEMPLATE.md con: qué hace, módulo, tarea (T-nnn), checklist (tests, lint, docs, sin secrets, tablero regenerado).
 
 ---

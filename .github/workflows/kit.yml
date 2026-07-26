@@ -35,6 +35,9 @@ jobs:
       - name: Auditoria de dependencias con allowlist caducable
         run: python3 kit-construction-project/plantillas/ci/test_audit_check.py
 
+      - name: Aviso de deriva de ramas
+        run: python3 kit-construction-project/plantillas/ci/test_deriva_ramas.py
+
       - name: Resolucion de IDs y movimiento del tablero
         run: python3 kit-construction-project/plantillas/protocolo/test_tablero.py
 

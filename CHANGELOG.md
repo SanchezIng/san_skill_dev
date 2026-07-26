@@ -3,6 +3,46 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-26 (5) — El kit da el instrumento para el problema que él crea
+
+**M-09, y con ella el plan queda cerrado.** El kit prescribe módulos reclamables
+trabajados en paralelo, y eso produce **estructuralmente** ramas de vida larga que
+divergen: es consecuencia del diseño, no un accidente. Creaba la condición y no
+daba el instrumento. En el piloto, un PR salió de su base el 18 y se mergeó el 22:
+cuatro conflictos, y uno **no mecánico** — la rama afirmaba un estado de tarea que
+ya era falso, y resolverlo a ciegas con `--theirs` habría metido una regresión
+documental en `main` con el CI en verde. Fue el mayor sumidero de tiempo de la
+sesión; el día 19 habría sido trivial.
+
+`scripts/deriva_ramas.py` (programado, dos veces por semana) avisa en los PRs que
+se han quedado más de N commits por detrás de su base.
+
+Lo que decide si sirve, más que el umbral:
+
+- **Un aviso por PR, no uno por ejecución** — el requisito que el hallazgo ponía
+  por encima de todo. Comenta una vez y después **edita ese mismo comentario**: la
+  cifra queda al día sin una sola notificación nueva. Un bot que avisa en cada
+  pasada se filtra, y un aviso filtrado no es un aviso.
+- **El aviso se corrige a sí mismo:** si la rama se pone al día, el comentario se
+  actualiza para decirlo. Un aviso obsoleto también miente.
+- **No poder mirar no es "no hay deriva":** si `gh` falla, si la comparación no
+  trae `behind_by` o si el listado de PRs llega al tope, para y lo dice.
+- El texto explica el riesgo **real** —el conflicto no mecánico, la regresión que
+  ningún test cubre— y cómo salir, no solo el número.
+
+Verificado contra los PRs reales de los dos repos del piloto: con umbral 8 detecta
+tres (#126 a 8 commits por detrás, #51 a 11, #50 a 12) y deja en paz al resto; con
+umbral 50 calla. La simulación (`--simular`) no tocó ningún PR. 18 casos nuevos,
+con los dos modos de fallo opuestos: spamear y callar cuando debería hablar.
+
+Por qué no basta lo nativo: *"Require branches to be up to date before merging"*
+depende de la protección de rama, que en repos privados con plan Free no existe —
+el mismo muro de M-03.
+
+Con esto, las nueve mejoras del [plan](plan-mejora.md) están cerradas: los cinco
+defectos que la auditoría del 25 encontró **ejecutando** el kit, y los cuatro
+hallazgos de uso real que seguían siendo texto sin mecanismo.
+
 ## 2026-07-26 (4) — El audit deja de ser decorativo
 
 **M-08.** El kit prescribía `npm audit` y compañía en el checklist de cada fase

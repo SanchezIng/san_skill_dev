@@ -426,6 +426,40 @@ compara con la salida cruda del comando. Añadir uno nuevo son dos cosas: el com
 que saca JSON y una función que lo normalice, que debe **lanzar** si no reconoce la
 forma, nunca devolver una lista vacía.
 
+## Deriva de ramas: el kit crea la condición, así que da el instrumento
+
+Módulos reclamables trabajados en paralelo producen **estructuralmente** ramas de
+vida larga que divergen. En el piloto, un PR salió de su base el día 18 y se
+mergeó el 22: cuatro conflictos, y uno **no mecánico** — la rama afirmaba un
+estado de tarea que ya era falso, y resolverlo a ciegas con `--theirs` habría
+metido una regresión documental en `main` **con el CI en verde**. Fue el mayor
+sumidero de tiempo de la sesión; el día 19 habría sido trivial.
+
+```bash
+python3 scripts/deriva_ramas.py --simular   # qué haría, sin tocar nada
+python3 scripts/deriva_ramas.py             # comenta donde toque
+```
+
+Lo que hace que sirva, más que el umbral:
+
+- **Un aviso por PR, no uno por ejecución.** Comenta una vez y después **edita**
+  ese mismo comentario: la cifra queda al día sin una sola notificación nueva. Un
+  bot que avisa en cada pasada se filtra, y un aviso filtrado no es un aviso.
+- **El aviso se corrige a sí mismo.** Si la rama se pone al día, el comentario se
+  actualiza para decirlo. Un aviso obsoleto también miente.
+- **No bloquea nada** (corre en `schedule`), pero **falla ruidosamente si no pudo
+  mirar**: que no haya avisos hoy no puede significar "no he podido consultar los PRs".
+- El texto explica el riesgo real —el conflicto no mecánico— y cómo salir, no solo
+  el número.
+
+`UMBRAL_COMMITS` se ajusta al ritmo del equipo: el número bueno es el que produce
+avisos que la gente lee. Si nadie hace caso, está bajo; si aparecen conflictos sin
+aviso previo, está alto.
+
+Por qué no basta la opción nativa: *"Require branches to be up to date before
+merging"* depende de la **protección de rama**, que en repos privados con plan Free
+no existe (ver la sección de proteger `main`).
+
 ## Lecciones del piloto (ya pagadas — no las repitas)
 
 - **`gh api graphql` con literales entre comillas falla desde PowerShell** (pierde las

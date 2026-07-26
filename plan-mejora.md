@@ -21,14 +21,28 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-06 🟠 | Smoke test de la salida del kickstart | hecho (camino 2; el 1 queda anotado) |
 | M-07 🟠 | Tablero generado en vez de a mano (hallazgo 3) | hecho |
 | M-08 🟠 | Allowlist caducable para `audit` (hallazgo 2) | hecho |
-| **M-09** 🟠 | **Deriva de ramas largas (hallazgo 4)** | **PENDIENTE — la última** |
+| M-09 🟠 | Deriva de ramas largas (hallazgo 4) | hecho |
 
-Los tres 🔴 están cerrados. Todo el trabajo está **commiteado en local y sin
-publicar**: `git log origin/main..HEAD`. Antes de publicar, ver la nota abierta
-de M-03 sobre la primera ejecución roja de la guarda.
+**Las nueve están cerradas.** Los tres hallazgos que quedaban sin implementar
+(2, 3 y 4) tienen ya su mecanismo, y los cinco defectos de la auditoría del
+2026-07-25 están corregidos.
+
+Todo el trabajo está **commiteado en local y sin publicar**:
+`git log origin/main..HEAD`. Quedan dos cosas por decidir antes de publicar:
+
+1. La nota abierta de **M-03**: la primera ejecución de la guarda de integridad
+   saldrá roja por los commits que ya entraron directos a `main`. Asumirlos como
+   deuda conocida o empezar a contar desde ese punto.
+2. Los commits de M-06 a M-09 viven en la rama `feat/smoke-test-kickstart`, no en
+   `main`: el propio kit dice que todo entra por PR.
+
+Lo que sigue abierto **dentro** de mejoras ya cerradas, dicho donde toca y no
+escondido: el `--dry-run` del kickstart (M-06, camino 1), la ventana entre dos
+generaciones del tablero (M-07) y los cuatro adaptadores de audit sin verificar
+contra su herramienta real (M-08).
 
 Para retomar: todas las suites deben estar verdes antes de tocar nada. Las corre
-enteras `.github/workflows/kit.yml`; en local, sus siete pasos.
+enteras `.github/workflows/kit.yml`; en local, sus nueve pasos.
 
 ---
 
@@ -362,21 +376,64 @@ primera ejecución en un proyecto de esos ecosistemas debería confirmarse con
 
 ## M-09 · 🟠 Deriva de ramas largas sin mecanismo
 
-**Estado:** pendiente · **Origen:** hallazgo 4
+**Estado:** hecho (2026-07-26) · **Origen:** hallazgo 4
 
-El kit prescribe módulos paralelos (que producen ramas de vida larga) y ninguna
-plantilla de CI vigila la deriva. Un PR con cuatro días de retraso costó cuatro
-conflictos, uno no mecánico.
+El kit prescribe módulos reclamables trabajados en paralelo, y eso produce
+**estructuralmente** ramas de vida larga que divergen: es consecuencia del
+diseño, no un accidente. El kit creaba la condición y no daba el instrumento. En
+el piloto, un PR salió de su base el 18 y se mergeó el 22: cuatro conflictos, uno
+**no mecánico** — la rama afirmaba un estado de tarea que ya era falso, y
+resolverlo a ciegas con `--theirs` habría metido una regresión documental en
+`main` con el CI en verde. El día 19 habría sido trivial.
+
+- [x] `plantillas/ci/deriva_ramas.py` + `deriva-ramas.yml` (programado, dos veces
+      por semana): avisa en los PRs que se han quedado más de `UMBRAL_COMMITS`
+      por detrás de su base.
+- [x] **Un aviso por PR, no uno por ejecución** — el requisito que el hallazgo
+      ponía por encima del umbral. Comenta una vez y después **edita ese mismo
+      comentario**: la cifra queda al día sin una sola notificación nueva.
+- [x] Y el aviso **se corrige a sí mismo**: si la rama se pone al día, el
+      comentario se actualiza para decirlo. Un aviso obsoleto también miente.
+- [x] No confunde los comentarios de humanos con el suyo (marca HTML propia), así
+      que no edita lo que escribió otro.
+- [x] **No poder mirar no es "no hay deriva"**: si `gh` falla, si la comparación
+      no trae `behind_by` o si el listado de PRs llega al tope, para y lo dice. La
+      alternativa sería un silencio que se lee como tranquilidad.
+- [x] El texto del aviso explica el riesgo **real** —el conflicto no mecánico y la
+      regresión con el CI en verde— y cómo salir, no solo el número.
+- [x] `--simular` dice qué haría sin tocar nada: permite ajustar el umbral y
+      probar en un repo real antes de dejar que comente.
+- [x] 18 casos en `test_deriva_ramas.py`, incluidos los dos modos de fallo
+      opuestos: spamear (se filtra y deja de leerse) y callar cuando debería
+      hablar.
+- [x] **Verificado contra los PRs reales** de los dos repos del piloto: con
+      umbral 8 detecta tres (#126 a 8 commits, #51 a 11, #50 a 12) y deja en paz
+      al resto; con umbral 50 calla. La simulación no tocó ningún PR.
+
+Por qué hace falta un workflow propio y no basta lo nativo: *"Require branches to
+be up to date before merging"* depende de la protección de rama, que en repos
+privados con plan Free **no existe** (es el mismo muro de M-03).
+
+Nota: no se activa en este repo. Trabajando en solitario y sin PRs abiertos no
+tendría nada que vigilar, y una guarda que no puede morder no demuestra nada.
 
 ---
 
-## Orden recomendado
+## Orden en que se hizo (y por qué)
 
-**M-02 → M-03 → M-01** son el bloque que hoy impide escalar: sin coherencia
-`main`/protección no puedes activar la única barrera que impide mergear sin
-revisar; y sin ruta de actualización, cada proyecto queda congelado en la
-versión con la que nació. Después M-04 y M-05 (fragilidad del candado), y luego
-M-06 a M-09.
+**M-02 → M-03 → M-01** era el bloque que impedía escalar: sin coherencia
+`main`/protección no se puede activar la única barrera que impide mergear sin
+revisar; y sin ruta de actualización, cada proyecto queda congelado en la versión
+con la que nació. Después M-04 y M-05 (fragilidad del candado), y luego M-06 a
+M-09. Se respetó ese orden.
+
+## Qué queda del plan
+
+Nada pendiente en la lista. Lo que sale de aquí no es una mejora más, sino la
+decisión de publicar (ver los dos puntos de "Dónde estamos") y, después,
+**volver a auditar ejecutando** — que es como se encontraron estos nueve. Los
+límites conocidos de cada mejora están anotados en su sección, no aquí, para que
+quien lea una mejora vea de una vez qué cubre y qué no.
 
 ## Hecho
 

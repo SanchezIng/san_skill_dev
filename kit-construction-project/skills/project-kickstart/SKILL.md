@@ -286,7 +286,10 @@ de memoria**: perderías los placeholders y las lecciones, que son todo su valor
     — auditoría de dependencias con allowlist caducable, **sin `continue-on-error`**: lo
     aceptado a sabiendas no bloquea y lo nuevo sí (ver `references/seguridad_ampliada.md`
     sección 2). Rellena `GESTOR` con el gestor de paquetes del stack elegido
-24. Copia del propio paquete portable en `SKILLS-PORTABLE/` del proyecto generado, para que
+24. `scripts/deriva_ramas.py` + `.github/workflows/deriva-ramas.yml` — aviso en los PRs
+    que se quedan atrás de su base. El modo colaborativo produce ramas largas por diseño;
+    esto es el instrumento que faltaba (ver `references/trabajo_en_equipo.md` sección 10)
+25. Copia del propio paquete portable en `SKILLS-PORTABLE/` del proyecto generado, para que
     el kit se propague y nunca dependa de un único checkout
 
 Reglas al instanciarlo:

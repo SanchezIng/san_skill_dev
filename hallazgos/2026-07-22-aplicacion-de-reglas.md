@@ -7,11 +7,14 @@
 > | # | Hallazgo | Severidad | Estado |
 > |---|---|---|---|
 > | 1 | `secure-coding-guard` solo se exige al reclamar tarea | 🔴 | **Corregido aquí** |
-> | 2 | Comando de auditoría prescrito sin decir qué hacer con él | 🟠 | Propuesto |
-> | 3 | El kit prescribe un espejo de un espejo | 🟠 | Propuesto |
-> | 4 | Crea las condiciones para la deriva de ramas, sin mecanismo | 🟠 | Propuesto |
-> | 5 | Declara la regla de revisión sin decir cómo se aplica | 🔴 | Propuesto |
+> | 2 | Comando de auditoría prescrito sin decir qué hacer con él | 🟠 | **Implementado (M-08)** |
+> | 3 | El kit prescribe un espejo de un espejo | 🟠 | **Implementado (M-07)** |
+> | 4 | Crea las condiciones para la deriva de ramas, sin mecanismo | 🟠 | **Implementado (M-09)** |
+> | 5 | Declara la regla de revisión sin decir cómo se aplica | 🔴 | **Implementado (M-03)** |
 > | 6 | Trata los falsos éxitos como anécdotas sueltas | 🔴 | **Corregido aquí** |
+>
+> Los seis están hoy implementados; el plan que los cerró es
+> [`plan-mejora.md`](../plan-mejora.md).
 >
 > Los 1–5 comparten un patrón: **regla declarada sin mecanismo que la aplique**.
 > El 6 es distinto y más incómodo: es un fallo en cómo el kit enseña a
@@ -123,7 +126,8 @@ ninguna de esas herramientas. Para ese caso la red es el checkpoint de
 
 ## Hallazgo 2 🟠 — El comando de auditoría se prescribe sin decir qué hacer con él
 
-**Estado: propuesto, no implementado.**
+**Estado: implementado el 2026-07-26 (M-08).** `plantillas/ci/audit_check.py` +
+`audit-allowlist.json`, parametrizado por gestor. Ver [CHANGELOG](../CHANGELOG.md).
 
 ### Qué pasó
 
@@ -177,7 +181,9 @@ grueso del trabajo pendiente.
 
 ## Hallazgo 3 🟠 — El kit prescribe un espejo de un espejo
 
-**Estado: propuesto, no implementado. Adyacente al PR #1 de este repo.**
+**Estado: implementado el 2026-07-26 (M-07).** Se tomó el camino preferido
+(generar la tabla desde el Project); el log de reclamos sigue a mano, como pedía
+la frontera de más abajo. Ver [CHANGELOG](../CHANGELOG.md).
 
 ### Qué pasó
 
@@ -259,7 +265,9 @@ Automatizar el espejo, jamás el porqué.
 
 ## Hallazgo 4 🟠 — El kit crea las condiciones para la deriva de ramas y no da mecanismo
 
-**Estado: propuesto, no implementado.**
+**Estado: implementado el 2026-07-26 (M-09).** `plantillas/ci/deriva_ramas.py`,
+con el requisito de un aviso por PR resuelto editando el comentario en vez de
+repetirlo. Ver [CHANGELOG](../CHANGELOG.md).
 
 ### Qué pasó
 
@@ -295,7 +303,10 @@ commits por detrás. Requisitos que importan más que el umbral:
 
 ## Hallazgo 5 🔴 — El kit declara la regla de revisión sin decir cómo se aplica (ni que puede ser inaplicable)
 
-**Estado: propuesto, no implementado. Es el caso más puro del patrón.**
+**Estado: implementado el 2026-07-26 (M-03).** Es el caso más puro del patrón.
+El diagnóstico va primero (`gh api …/rulesets`) porque en repos privados con plan
+Free la protección de rama **no existe**; de ahí la opción detectiva. Ver
+[CHANGELOG](../CHANGELOG.md).
 
 ### Qué pasó
 
