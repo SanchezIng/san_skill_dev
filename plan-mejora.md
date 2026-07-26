@@ -19,8 +19,8 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-04 🟠 | IDs del Project sin validar | hecho |
 | M-05 🟠 | Límites de paginación que mienten | hecho |
 | M-06 🟠 | Smoke test de la salida del kickstart | hecho (camino 2; el 1 queda anotado) |
-| **M-07** 🟠 | **Tablero generado en vez de a mano (hallazgo 3)** | **PENDIENTE — siguiente** |
-| M-08 🟠 | Allowlist caducable para `audit` (hallazgo 2) | pendiente |
+| M-07 🟠 | Tablero generado en vez de a mano (hallazgo 3) | hecho |
+| **M-08** 🟠 | **Allowlist caducable para `audit` (hallazgo 2)** | **PENDIENTE — siguiente** |
 | M-09 🟠 | Deriva de ramas largas (hallazgo 4) | pendiente |
 
 Los tres 🔴 están cerrados. Todo el trabajo está **commiteado en local y sin
@@ -252,13 +252,58 @@ ignore la plantilla sigue pudiendo generar cualquier cosa.
 
 ## M-07 · 🟠 El tablero se mantiene a mano siendo un espejo
 
-**Estado:** pendiente · **Origen:** hallazgo 3 · **Relacionado:** M-02
+**Estado:** hecho (2026-07-26) · **Origen:** hallazgo 3 · **Relacionado:** M-02
 
 Project (verdad) → tablero (resumen) → `estado-actual` (espejo del tablero), los
-dos últimos a mano. En el piloto produjo deriva tres veces en dos días.
+dos últimos a mano. En el piloto produjo deriva tres veces en dos días; una de
+ellas hubo que ir al `git log` para dirimir cuál de las tres fuentes decía la
+verdad, y resolver el conflicto a ciegas habría metido una regresión documental
+en `main` con el CI en verde.
 
-- [ ] Generar `tablero-equipo.md` desde el Project en vez de escribirlo.
-- [ ] Eliminar una de las dos instantáneas manuales.
+Se tomó el camino **preferido** del hallazgo (generar), no el mínimo (una guarda
+que avisa después de romperlo).
+
+- [x] `tablero.py --generar` reescribe la tabla desde el Project: módulos
+      (agregado) y tareas abiertas. Determinista — el mismo Project produce el
+      mismo texto, así que regenerar no ensucia el diff.
+- [x] **El log de reclamos no se genera jamás**, y es una frontera declarada en
+      el propio archivo, en el README y en `CLAUDE-fragmento.md`: la tabla es un
+      hecho mecánico, el log es causalidad. El generador escribe solo entre
+      marcas y **conserva byte a byte** lo que hay fuera.
+- [x] Si el archivo **no lleva marcas** (tablero heredado, escrito a mano), se
+      niega a tocarlo y explica cómo adoptarlo. Misma lección que M-01: nunca se
+      pisa en silencio lo que escribió una persona.
+- [x] Lección de M-05 otra vez: si el listado del Project viene recortado
+      (`totalCount` > lo recibido, o justo el tope) **no escribe nada**. Un
+      tablero a medias no se lee como incompleto, se lee como si esas tareas no
+      existieran.
+- [x] Tras escribir, **relee el archivo** y falla si no contiene el bloque — la
+      regla de `/verificar` aplicada al propio protocolo, igual que en `--mover`.
+- [x] `estado-actual.md` pierde la tabla de estado por módulo (era el espejo del
+      espejo) y se queda con lo que solo él tiene: decisiones vivas, deudas y
+      convenciones que cambiaron. Corregido en `trabajo_en_equipo.md` §5 y §11,
+      en `SKILL.md` y en `cerrar-sesion.SKILL.md`.
+- [x] **Tercera copia que el hallazgo no listaba:** `docs/equipo.md` también
+      llevaba columna de estado y de "quién trabaja en qué". Se queda con lo que
+      no cambia cada día (label, frontera, dependencias).
+- [x] `/que-toca` y `/cerrar-sesion` ya no editan la tabla: la regeneran.
+- [x] 16 casos nuevos en `test_tablero.py` (31 en total), incluidos los dos que
+      de verdad importan: que el log escrito a mano sobrevive a regenerar, y que
+      un tablero sin marcas no se pisa.
+- [x] **Verificado contra el Project real** del piloto (55 items): resuelve
+      `Motor Facturación SUNAT — MVP`, genera, es idempotente, conserva una línea
+      de log añadida a mano y se niega a pisar un tablero sin marcas.
+
+Hallazgo de paso, y es justo el tipo de cosa que un tablero a mano tapa: **26 de
+las 55 tareas del Project real no llevan label `modulo:`**. Todas las posteriores
+al MVP. Con la tabla generada eso ya no se puede disimular — salen agrupadas bajo
+`(sin módulo)`, que es la forma de que se note.
+
+Límite conocido: entre dos generaciones, alguien puede editar la tabla a mano y
+commitearla. La siguiente generación lo pisa (que es lo correcto), pero hasta
+entonces miente. La alternativa —guarda en CI que compare tablero y Project—
+necesita un token con alcance de Projects en CI, que `GITHUB_TOKEN` no trae; no
+se promete lo que no se puede cumplir.
 
 ## M-08 · 🟠 `npm audit` prescrito sin decir qué hacer con el resultado
 

@@ -253,9 +253,9 @@ Lee `references/plantillas.md` para la estructura exacta de cada archivo. Genera
 
 **Solo en modo colaborativo (2+ devs), según `references/trabajo_en_equipo.md`:**
 
-13. `docs/equipo.md` — catálogo de módulos con estado (Disponible/En progreso/Bloqueado/Terminado), fronteras, reglas de convivencia, metodología
+13. `docs/equipo.md` — catálogo de módulos: label `modulo:X`, fronteras, dependencias, reglas de convivencia, metodología (**sin estado**: eso vive en el Project y su espejo generado)
 14. `docs/backlog.md` — backlog inicial con tareas T-nnn, módulo, dependencias, criterios de aceptación y estado
-15. `progreso/tablero-equipo.md` — tablero vivo en Markdown (módulos + tareas + log append-only de reclamos)
+15. `progreso/tablero-equipo.md` — tablero vivo: tabla **generada** desde el Project (`scripts/tablero.py --generar`) + log append-only de reclamos escrito a mano
 16. `.github/workflows/ci.yml` — lint + análisis estático + tests + auditoría de deps, adaptado al stack
 17. `.github/PULL_REQUEST_TEMPLATE.md` — plantilla con módulo, tarea y checklist
 
@@ -296,7 +296,7 @@ Reglas al instanciarlo:
 - Pega `plantillas/CLAUDE-fragmento.md` en el CLAUDE.md generado (protocolo + reglas del
   sistema de conocimiento + tabla de dónde vive cada tipo de conocimiento).
 
-En modo colaborativo, además: CLAUDE.md incluye la sección `## 👥 Convenciones de Equipo`, ROADMAP.md gana la columna "Módulo" y `progreso/estado-actual.md` incluye la tabla de estado por módulo. Al entregar, ofrece generar el backlog como GitHub Issues + Project con `gh` (opción B del tablero) si el usuario lo desea; se pueden usar ambos tableros (Markdown + GitHub) con uno como espejo.
+En modo colaborativo, además: CLAUDE.md incluye la sección `## 👥 Convenciones de Equipo` y ROADMAP.md gana la columna "Módulo". `progreso/estado-actual.md` **NO** gana tabla de estado por módulo: ese estado vive en el Project y su espejo es el tablero, que se genera — una instantánea a mano de otra instantánea a mano solo añade una tercera respuesta posible a la misma pregunta (ver `references/trabajo_en_equipo.md` sección 5). Al entregar, ofrece generar el backlog como GitHub Issues + Project con `gh` (opción B del tablero) si el usuario lo desea; con ambos, el Markdown es el espejo **generado** del Project.
 
 **Estructura inicial del repo:** crea SOLO las carpetas necesarias para la Fase 1 (o F1.1). Por ejemplo, no crees `tests/`, `migrations/`, `docs/api/` si la Fase 1 no los necesita; la guía indicará en qué fase posterior se introducen.
 

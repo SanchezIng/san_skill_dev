@@ -112,14 +112,22 @@ git checkout -b {{PREFIJO_RAMA}}
 
 ## Paso 6 — Espejo en el repo (en la rama, NO en main)
 
-En `progreso/tablero-equipo.md`: actualizar la fila del módulo y añadir línea al log
-append-only (`- YYYY-MM-DD {dev} reclama T-nnn (#N) — {resumen}`). Se commitea **en la
-rama de la tarea** y entra a `main` con el PR:
+La tabla **no se escribe a mano**: se regenera desde el Project, que ya sabe lo que
+acabas de reclamar. Lo único que teclea una persona es la línea del log, y solo si
+tiene algo que contar que el Project no diga (un acuerdo de frontera, una trampa
+que te costó el intento anterior):
 
 ```bash
+python3 scripts/tablero.py --generar
+# opcional, al final del archivo (append-only, NUNCA se genera):
+#   - YYYY-MM-DD {dev} reclama T-nnn (#N) — {lo que el Project no cuenta}
 git add progreso/tablero-equipo.md
 git commit -m "chore(tablero): reclamar T-nnn"
 ```
+
+Si `--generar` falla, **no arregles la tabla a mano**: el archivo se queda como estaba
+y lo dice. Se arregla en el Project y se vuelve a generar. La tabla escrita a mano es
+justo lo que produjo tres derivas en dos días de uso real.
 
 **Por qué no va directo a main:** el candado ya se echó en el paso 4. El assignee y el
 estado del Project son visibles para todo el equipo **al instante**, y son la verdad
@@ -128,10 +136,11 @@ pasa nada, porque nadie decide mirándolo. Mandarlo a `main` obligaría a dejar 
 sin proteger para siempre — precio altísimo por sincronizar un resumen.
 
 > **Excepción — proyecto SIN GitHub Project:** si el tablero markdown es el único
-> registro (no hay Issues ni Project), entonces **el tablero SÍ es el candado**: hay
-> que publicarlo antes de codear y, por tanto, **antes del paso 5** — estando todavía
-> en `main`, no en la rama (desde la rama, `git push origin main` empuja el `main`
-> local, que no tiene el commit):
+> registro (no hay Issues ni Project), entonces **el tablero SÍ es el candado**, y
+> ahí la tabla se escribe a mano porque no hay de dónde generarla (`--generar` no
+> aplica: no existe la fuente). Hay que publicarlo antes de codear y, por tanto,
+> **antes del paso 5** — estando todavía en `main`, no en la rama (desde la rama,
+> `git push origin main` empuja el `main` local, que no tiene el commit):
 >
 > ```bash
 > git add progreso/tablero-equipo.md

@@ -3,6 +3,53 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-26 (3) — El tablero se genera; el porqué se sigue escribiendo
+
+**M-07.** El estado de una tarea vivía duplicado a mano en el Project, en
+`progreso/tablero-equipo.md` y en `progreso/estado-actual.md`. En dos días de uso
+real eso derivó **tres veces**; en una hubo que ir al `git log` para dirimir cuál
+de las tres fuentes decía la verdad, y resolver el conflicto a ciegas habría
+metido una regresión documental en `main` con el CI en verde. La redundancia solo
+preserva contexto si las copias coinciden: cuando discrepan es peor que no
+tenerla, porque quien lee no sabe cuál manda.
+
+`scripts/tablero.py --generar` reescribe la tabla desde el Project. Lo que nadie
+teclea no puede desviarse.
+
+**La frontera que define el cambio:** la tabla se genera, el **log de reclamos no
+se genera jamás**. La tabla es un hecho mecánico (en qué columna está algo, quién
+lo tiene); el log es causalidad (por qué se atascó, qué trampa costó un intento
+fallido, qué se acordó al partir un módulo). Un generador de logs produciría texto
+plausible y vacío y se perdería justo lo que mejor funciona del kit. El generador
+escribe solo entre marcas y conserva byte a byte lo que hay fuera.
+
+Lo que se quitó, no solo lo que se añadió:
+
+- **`estado-actual.md` pierde la tabla de estado por módulo** — era el espejo de un
+  espejo. Se queda con lo que solo él tiene: decisiones vivas, deudas y
+  convenciones que cambiaron.
+- **`docs/equipo.md` pierde las columnas de estado y de "quién trabaja en qué"**,
+  una tercera copia que el hallazgo original no había listado. Conserva lo que no
+  cambia cada día: label, frontera, dependencias.
+- `/que-toca` y `/cerrar-sesion` ya no editan la tabla: la regeneran.
+
+Lecciones anteriores aplicadas de vuelta:
+
+- **Nunca se pisa lo que escribió una persona** (M-01): si el archivo no lleva las
+  marcas del bloque generado, se niega a tocarlo y explica cómo adoptarlo.
+- **Ninguna conclusión sobre una lista truncada** (M-05): si el Project devuelve
+  menos items de los que dice tener, o justo el tope, no escribe nada. Un tablero a
+  medias no se lee como incompleto, se lee como si esas tareas no existieran.
+- **Verificar el efecto, no la invocación:** tras escribir, relee el archivo y falla
+  si no contiene el bloque.
+
+Verificado contra el Project real del piloto (55 items): genera, es idempotente,
+conserva una línea de log añadida a mano y se niega a pisar un tablero sin marcas.
+Y destapó lo que un tablero a mano tapaba: **26 de las 55 tareas no llevan label
+`modulo:`**, todas las posteriores al MVP. Ahora salen agrupadas bajo `(sin
+módulo)`, que es la forma de que se note. 16 casos nuevos en `test_tablero.py`
+(31 en total).
+
 ## 2026-07-26 (2) — La pieza más grande deja de estar sin vigilar
 
 **M-06.** `project-kickstart` son ~2.900 líneas de prosa que nadie ejecuta: una

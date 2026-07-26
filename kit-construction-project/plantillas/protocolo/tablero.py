@@ -26,10 +26,19 @@ Y despues de mover, RELEE el estado de la tarjeta: que la mutacion devuelva 200
 dice que la API acepto la peticion, no que la tarjeta este donde quieres. Es la
 regla de /verificar aplicada al propio protocolo.
 
+Y GENERA el tablero en Markdown desde el Project (--generar). El estado vivia
+duplicado a mano en el Project y en `progreso/tablero-equipo.md`; en dos dias de
+uso real eso derivo tres veces, y una de ellas hubo que ir al `git log` para
+dirimir cual de las tres fuentes decia la verdad. Lo que nadie teclea no puede
+desviarse. El LOG de reclamos, en cambio, no se genera jamas: la tabla es un
+hecho mecanico, el log es causalidad (por que una tarea se atasco, que trampa
+costo un intento fallido) y ninguna automatizacion escribiria eso.
+
 Uso:
     python3 scripts/tablero.py --comprobar          # diagnostico (exit 1 si falla)
     python3 scripts/tablero.py --ids                # JSON con los IDs resueltos
     python3 scripts/tablero.py --mover <ITEM_ID> "En progreso"
+    python3 scripts/tablero.py --generar [ruta]     # reescribe la tabla del tablero
 Tests:
     python3 scripts/test_tablero.py
 """
@@ -39,6 +48,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from datetime import date
+from pathlib import Path
 
 # --- Configuracion del proyecto (lo unico que hay que rellenar) -------------
 OWNER = "{{OWNER}}"
@@ -49,6 +60,28 @@ PROJECT_NUMBER = "{{PROJECT_NUMBER}}"
 # encuentra y con que nombres cuenta el Project.
 CAMPO_ESTADO = "Status"
 ESTADOS = ["Disponible", "Bloqueada", "En progreso", "Review", "Terminado"]
+
+# Como se marca a que modulo pertenece cada tarea: label `modulo:A`, `modulo:B`...
+# Una tarea puede llevar varias (un hito de integracion toca dos modulos) y
+# entonces sale en las dos filas.
+PREFIJO_MODULO = "modulo:"
+SIN_MODULO = "(sin módulo)"
+
+# Semantica de las columnas para resumir el estado de un modulo. Si renombras
+# una columna, cambiala en ESTADOS y aqui: el script comprueba que cuadren.
+EN_CURSO = ("En progreso", "Review")
+TERMINADO = "Terminado"
+BLOQUEADA = "Bloqueada"
+DISPONIBLE = "Disponible"
+
+# Tope del listado de items. `gh` devuelve tambien `totalCount`, asi que se
+# puede saber si vino recortado en vez de suponerlo (leccion pagada: una lista
+# truncada parece completa y las conclusiones que se sacan de ella son falsas).
+LIMITE_ITEMS = 500
+
+RUTA_TABLERO = "progreso/tablero-equipo.md"
+MARCA_INICIO = "<!-- TABLERO GENERADO por scripts/tablero.py --generar · NO EDITAR A MANO -->"
+MARCA_FIN = "<!-- FIN DEL TABLERO GENERADO · lo de abajo es tuyo -->"
 
 CONSULTA = """
 query($owner: String!, $number: Int!) {
@@ -224,6 +257,220 @@ def mover(item_id: str, estado: str) -> None:
         )
 
 
+# --- Generacion del tablero en Markdown -------------------------------------
+
+def _items() -> list[dict]:
+    """Los items del Project. PARA si el listado vino recortado.
+
+    Escribir un tablero a partir de media lista es peor que no tenerlo: las
+    tareas que faltan no se ven como "faltan", se leen como "no existen".
+    """
+    r = subprocess.run(
+        ["gh", "project", "item-list", str(PROJECT_NUMBER), "--owner", OWNER,
+         "--format", "json", "--limit", str(LIMITE_ITEMS)],
+        capture_output=True, text=True,
+    )
+    if r.returncode != 0:
+        raise ErrorDeConfiguracion(
+            f"No se pudo listar el Project {PROJECT_NUMBER} de '{OWNER}':\n"
+            f"   {(r.stderr or '').strip()}\n"
+            f"   Comprueba el alcance del token: gh auth refresh -s project"
+        )
+    try:
+        datos = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        raise ErrorDeConfiguracion(
+            "`gh project item-list` no devolvio JSON valido; no se escribe nada."
+        ) from None
+
+    items = datos.get("items") or []
+    total = datos.get("totalCount")
+    if isinstance(total, int) and total > len(items):
+        raise ErrorDeConfiguracion(
+            f"El Project tiene {total} items y el listado trajo {len(items)}: "
+            f"vino RECORTADO.\n"
+            f"   Sube LIMITE_ITEMS en scripts/tablero.py (ahora {LIMITE_ITEMS}) y "
+            f"vuelve a generar.\n"
+            f"   No se escribe un tablero a medias: las tareas que faltan no "
+            f"parecen ausentes, parecen inexistentes."
+        )
+    if len(items) >= LIMITE_ITEMS:
+        raise ErrorDeConfiguracion(
+            f"El listado trajo justo el tope ({LIMITE_ITEMS} items): asume que hay "
+            f"mas.\n   Sube LIMITE_ITEMS en scripts/tablero.py y vuelve a generar."
+        )
+    return items
+
+
+def _comprobar_semantica() -> None:
+    """Las columnas con significado tienen que existir de verdad."""
+    declaradas = set(ESTADOS)
+    faltan = [e for e in (*EN_CURSO, TERMINADO, BLOQUEADA, DISPONIBLE)
+              if e not in declaradas]
+    if faltan:
+        raise ErrorDeConfiguracion(
+            f"scripts/tablero.py: {', '.join(sorted(set(faltan)))} no esta(n) en "
+            f"ESTADOS ({', '.join(ESTADOS)}).\n"
+            f"   Si renombraste columnas, ajusta ESTADOS Y las constantes de "
+            f"semantica (EN_CURSO, TERMINADO, BLOQUEADA, DISPONIBLE)."
+        )
+
+
+def _modulos_de(item: dict) -> list[str]:
+    etiquetas = item.get("labels") or []
+    modulos = sorted(e[len(PREFIJO_MODULO):] for e in etiquetas
+                     if e.startswith(PREFIJO_MODULO))
+    return modulos or [SIN_MODULO]
+
+
+def _titulo_de(item: dict) -> str:
+    contenido = item.get("content") or {}
+    titulo = contenido.get("title") or item.get("title") or "(sin título)"
+    numero = contenido.get("number")
+    return f"{titulo} (#{numero})" if numero else titulo
+
+
+def _estado_del_modulo(estados: list[str]) -> str:
+    """Resumen de un modulo a partir de sus tareas. La regla se imprime en el
+    propio tablero: un estado derivado que no dice como se deriva es otra cosa
+    que hay que creerse."""
+    if not estados:
+        return "Sin tareas"
+    if any(e in EN_CURSO for e in estados):
+        return "En progreso"
+    if all(e == TERMINADO for e in estados):
+        return "Terminado"
+    if not any(e == DISPONIBLE for e in estados) and any(e == BLOQUEADA for e in estados):
+        return "Bloqueado"
+    return "Disponible"
+
+
+def tablas(items: list[dict], titulo_proyecto: str, hoy: str) -> str:
+    """El bloque generado, entero y determinista (mismo Project -> mismo texto)."""
+    _comprobar_semantica()
+
+    por_modulo: dict[str, list[dict]] = {}
+    for item in items:
+        for modulo in _modulos_de(item):
+            por_modulo.setdefault(modulo, []).append(item)
+
+    filas_mod = []
+    for modulo in sorted(por_modulo, key=lambda m: (m == SIN_MODULO, m)):
+        suyas = por_modulo[modulo]
+        estados = [i.get("status") or "(sin estado)" for i in suyas]
+        abiertas = [i for i, e in zip(suyas, estados) if e != TERMINADO]
+        devs = sorted({a for i in abiertas for a in (i.get("assignees") or [])})
+        filas_mod.append(
+            f"| {modulo} | {_estado_del_modulo(estados)} | {', '.join(devs) or '—'} "
+            f"| {len(abiertas)} / {len(suyas)} |"
+        )
+
+    abiertos = [i for i in items if (i.get("status") or "") != TERMINADO]
+    filas_tar = []
+    for item in sorted(abiertos, key=_titulo_de):
+        devs = ", ".join(item.get("assignees") or []) or "—"
+        filas_tar.append(
+            f"| {_titulo_de(item)} | {', '.join(_modulos_de(item))} | {devs} "
+            f"| {item.get('status') or '(sin estado)'} |"
+        )
+
+    cerradas = len(items) - len(abiertos)
+    return "\n".join([
+        MARCA_INICIO,
+        "",
+        f"**Project:** {titulo_proyecto} · **Generado:** {hoy} · "
+        f"**Tareas:** {len(abiertos)} abiertas de {len(items)}",
+        "",
+        "El estado real vive en el Project; esto es su espejo, y se reescribe entero",
+        "cada vez. Si algo aquí no cuadra, se arregla **en el Project** y se vuelve a",
+        "generar: editar esta tabla a mano solo dura hasta la siguiente generación.",
+        "",
+        "## Módulos",
+        "",
+        "| Módulo | Estado | Devs con tarea abierta | Abiertas / total |",
+        "|---|---|---|---|",
+        *(filas_mod or ["| — | Sin tareas | — | 0 / 0 |"]),
+        "",
+        f"Estado del módulo, derivado de sus tareas: **En progreso** si alguna está en "
+        f"{' o '.join(EN_CURSO)}; **Terminado** si todas lo están; **Bloqueado** si no "
+        f"queda ninguna {DISPONIBLE} y hay alguna {BLOQUEADA}; si no, **{DISPONIBLE}**.",
+        "",
+        "## Tareas abiertas",
+        "",
+        "| Tarea | Módulo | Dev | Estado |",
+        "|---|---|---|---|",
+        *(filas_tar or ["| — | — | — | (ninguna abierta) |"]),
+        "",
+        f"{cerradas} tarea(s) en {TERMINADO} no se listan aquí (están en el Project): "
+        f"arriba solo lo que sigue vivo.",
+        "",
+        MARCA_FIN,
+    ]) + "\n"
+
+
+ESQUELETO = """# Tablero del Equipo
+
+{bloque}
+## Log de reclamos (append-only, A MANO — esto no se genera nunca)
+
+La tabla de arriba es un hecho mecánico y se regenera sola. Esto es lo otro: por
+qué una tarea se atascó, qué trampa costó un intento fallido, qué acuerdo se tomó
+al repartir un módulo. Ninguna automatización escribiría estas líneas, así que
+solo se **añaden** al final (evita conflictos de merge) y no se borran.
+
+- {hoy} tablero generado por primera vez desde el Project
+"""
+
+
+def _partir(contenido: str, ruta: str) -> tuple[str, str]:
+    """(antes, despues) del bloque generado. PARA si no hay dónde escribir.
+
+    Nunca se pisa un archivo que escribió una persona: es la misma leccion que
+    el instalador aprendio por las malas.
+    """
+    if contenido.count(MARCA_INICIO) != 1 or contenido.count(MARCA_FIN) != 1:
+        raise ErrorDeConfiguracion(
+            f"{ruta} existe pero no tiene exactamente una marca de inicio y una de "
+            f"fin del bloque generado.\n"
+            f"   No se toca: podria haber ahi trabajo escrito a mano.\n"
+            f"   Para adoptarlo, envuelve la parte de TABLAS entre estas dos líneas\n"
+            f"   (el log se queda fuera, debajo de la marca de fin):\n"
+            f"     {MARCA_INICIO}\n     {MARCA_FIN}\n"
+            f"   O borra el archivo y vuelve a generar para empezar limpio."
+        )
+    antes, resto = contenido.split(MARCA_INICIO, 1)
+    _generado, despues = resto.split(MARCA_FIN, 1)
+    if despues.startswith("\n"):
+        despues = despues[1:]
+    return antes, despues
+
+
+def generar(ruta: str | None = None, hoy: str | None = None) -> str:
+    """Reescribe SOLO el bloque de tablas. Devuelve la ruta escrita."""
+    destino = Path(ruta or RUTA_TABLERO)
+    hoy = hoy or date.today().isoformat()
+    ids = resolver()  # valida configuracion y da el titulo del Project
+    bloque = tablas(_items(), ids["titulo"] or f"{OWNER}/{PROJECT_NUMBER}", hoy)
+
+    if destino.exists():
+        antes, despues = _partir(destino.read_text(encoding="utf-8"), str(destino))
+        nuevo = f"{antes}{bloque}{despues}"
+    else:
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        nuevo = ESQUELETO.format(bloque=bloque, hoy=hoy)
+
+    destino.write_text(nuevo, encoding="utf-8", newline="\n")
+
+    # Que write_text no lance no es que el archivo diga lo que crees.
+    escrito = destino.read_text(encoding="utf-8")
+    if MARCA_INICIO not in escrito or bloque.strip() not in escrito:
+        raise ErrorDeConfiguracion(
+            f"Se escribio {destino} pero al releerlo no contiene el bloque generado.\n"
+            f"   NO des el tablero por actualizado."
+        )
+    return str(destino)
+
+
 def main(argv: list[str]) -> int:
     try:
         if argv and argv[0] == "--mover":
@@ -234,11 +481,21 @@ def main(argv: list[str]) -> int:
             print(f"OK  tarjeta {argv[1]} en '{argv[2]}' (releido del tablero)")
             return 0
 
+        if argv and argv[0] == "--generar":
+            escrito = generar(argv[1] if len(argv) > 1 else None)
+            print(f"OK  {escrito} regenerado desde el Project "
+                  f"(el log de reclamos no se ha tocado)")
+            return 0
+
         datos = resolver()
     except ErrorDeConfiguracion as e:
         print(f"FALLO {e}")
-        print("\nNO des por hecho el reclamo: si el tablero no se puede tocar, /que-toca")
-        print("puede asignarte el issue y NO mover la tarjeta, y el tablero mentiria.")
+        if argv and argv[0] == "--generar":
+            print("\nEl tablero NO se ha actualizado. No lo cites como estado del")
+            print("equipo hasta regenerarlo: lo que hay en el archivo es de antes.")
+        else:
+            print("\nNO des por hecho el reclamo: si el tablero no se puede tocar, /que-toca")
+            print("puede asignarte el issue y NO mover la tarjeta, y el tablero mentiria.")
         return 1
 
     if "--comprobar" in argv:

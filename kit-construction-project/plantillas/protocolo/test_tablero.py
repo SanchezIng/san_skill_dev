@@ -12,7 +12,10 @@ Uso: python3 scripts/test_tablero.py     (exit 1 si algun caso falla)
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -239,6 +242,253 @@ def _():
     mod.mover("PVTI_item1", "En progreso")
     assert capturado["variables"]["optionId"] == "opt_2", capturado
     assert "opt_2" not in capturado["consulta"], "el id no puede ir en el texto"
+
+
+# --- Generacion del tablero -------------------------------------------------
+#
+# Aqui lo que se protege es distinto: no que la API se use bien, sino que el
+# archivo del repo diga la verdad Y que lo escrito por una persona sobreviva.
+# La tabla se genera; el log de reclamos NO se genera jamas, y estos casos son
+# los que impiden que alguien lo automatice por comodidad mas adelante.
+
+def preparar_generar(mod, items, total=None, titulo="Facturacion"):
+    mod._graphql = lambda ambito: proyecto(TODAS, titulo=titulo) if ambito == "user" else None
+    salida = json.dumps({"items": items,
+                         "totalCount": total if total is not None else len(items)})
+    mod.subprocess.run = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, salida, "")
+    return mod
+
+
+def tarea(titulo, estado, modulos=(), devs=(), numero=None):
+    return {
+        "id": f"PVTI_{titulo}",
+        "status": estado,
+        "assignees": list(devs),
+        "labels": [f"modulo:{m}" for m in modulos],
+        "content": {"title": titulo, "number": numero, "type": "Issue"},
+    }
+
+
+TRES = [
+    tarea("T-001 Login", "Terminado", ["A"], ["ana"], 1),
+    tarea("T-002 API", "En progreso", ["B"], ["luis"], 2),
+    tarea("T-003 Cola", "Bloqueada", ["C"], [], 3),
+]
+
+
+def generar_en(tmp, mod, contenido_previo=None):
+    ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+    if contenido_previo is not None:
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        ruta.write_text(contenido_previo, encoding="utf-8")
+    mod.generar(str(ruta), hoy="2026-07-26")
+    return ruta.read_text(encoding="utf-8")
+
+
+@caso("generar de cero: crea el archivo con tablas Y con el log a mano vacio")
+def _():
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        texto = generar_en(tmp, mod)
+    assert "T-002 API (#2)" in texto, texto
+    assert "| B |" in texto, texto
+    assert "Log de reclamos" in texto and "no se genera nunca" in texto, texto
+
+
+@caso("las tareas Terminado no se listan, pero se DICE cuantas hay")
+def _():
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        texto = generar_en(tmp, mod)
+    assert "T-001 Login" not in texto.split("## Tareas abiertas")[1], texto
+    assert "1 tarea(s) en Terminado no se listan" in texto, texto
+
+
+@caso("EL LOG ESCRITO A MANO SOBREVIVE a regenerar")
+def _():
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        primero = generar_en(tmp, mod)
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        nota = "- 2026-07-26 Ana: el endpoint choca con la migracion; NO tocar hasta F4\n"
+        ruta.write_text(primero + nota, encoding="utf-8")
+        mod2 = preparar_generar(cargar(), [tarea("T-009 Nueva", "Disponible", ["A"])])
+        mod2.generar(str(ruta), hoy="2026-07-27")
+        despues = ruta.read_text(encoding="utf-8")
+    assert nota.strip() in despues, "se ha perdido una linea escrita por una persona"
+    assert "T-009 Nueva" in despues, "no llego el estado nuevo"
+    assert "T-002 API" not in despues, "quedo estado viejo en la tabla"
+
+
+@caso("lo escrito ANTES del bloque tambien se respeta")
+def _():
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        primero = generar_en(tmp, mod)
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        ruta.write_text(primero.replace(
+            "# Tablero del Equipo",
+            "# Tablero\n\n> Ojo: los viernes no se reclama nada."), encoding="utf-8")
+        mod.generar(str(ruta), hoy="2026-07-26")
+        despues = ruta.read_text(encoding="utf-8")
+    assert "los viernes no se reclama nada" in despues, despues
+
+
+@caso("regenerar dos veces sin cambios: mismo texto (no ensucia el diff)")
+def _():
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        preparar_generar(cargar(), TRES).generar(str(ruta), hoy="2026-07-26")
+        uno = ruta.read_text(encoding="utf-8")
+        preparar_generar(cargar(), list(reversed(TRES))).generar(str(ruta), hoy="2026-07-26")
+        dos = ruta.read_text(encoding="utf-8")
+    assert uno == dos, "el orden de la API no debe cambiar el archivo"
+
+
+@caso("TABLERO ESCRITO A MANO (sin marcas): NO se pisa, se explica como adoptarlo")
+def _():
+    mod = preparar_generar(cargar(), TRES)
+    a_mano = "# Tablero\n\n| Modulo | Estado |\n|---|---|\n| A | En progreso |\n"
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        ruta.parent.mkdir(parents=True)
+        ruta.write_text(a_mano, encoding="utf-8")
+        try:
+            mod.generar(str(ruta))
+            raise AssertionError("deberia haber fallado")
+        except mod.ErrorDeConfiguracion as e:
+            assert "No se toca" in str(e), e
+            assert "borra el archivo" in str(e), e
+        assert ruta.read_text(encoding="utf-8") == a_mano, "ha modificado el archivo"
+
+
+@caso("marcas duplicadas (mal merge): tampoco se escribe a ciegas")
+def _():
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        primero = generar_en(tmp, mod)
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        ruta.write_text(primero + primero, encoding="utf-8")
+        try:
+            mod.generar(str(ruta))
+            raise AssertionError("deberia haber fallado")
+        except mod.ErrorDeConfiguracion as e:
+            assert "exactamente una marca" in str(e), e
+
+
+@caso("LISTADO RECORTADO: no escribe media verdad, muerde")
+def _():
+    # totalCount dice 40 y solo llegan 3: el tablero omitiria 37 tareas y esas
+    # no se leerian como ausentes, sino como inexistentes.
+    mod = preparar_generar(cargar(), TRES, total=40)
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            generar_en(tmp, mod)
+            raise AssertionError("deberia haber fallado")
+        except mod.ErrorDeConfiguracion as e:
+            assert "RECORTADO" in str(e), e
+            assert "LIMITE_ITEMS" in str(e), e
+        assert not (Path(tmp) / "progreso" / "tablero-equipo.md").exists(), \
+            "no debe dejar un tablero a medias"
+
+
+@caso("listado justo en el tope: se asume que hay mas")
+def _():
+    mod = cargar()
+    mod.LIMITE_ITEMS = 3
+    preparar_generar(mod, TRES, total=3)
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            generar_en(tmp, mod)
+            raise AssertionError("deberia haber fallado")
+        except mod.ErrorDeConfiguracion as e:
+            assert "justo el tope" in str(e), e
+
+
+@caso("una tarea sin label de modulo NO desaparece: cae en (sin módulo)")
+def _():
+    mod = preparar_generar(cargar(), [tarea("T-050 Huerfana", "Disponible")])
+    with tempfile.TemporaryDirectory() as tmp:
+        texto = generar_en(tmp, mod)
+    assert "T-050 Huerfana" in texto, texto
+    assert mod.SIN_MODULO in texto, texto
+
+
+@caso("un hito con dos modulos sale en las dos filas")
+def _():
+    mod = preparar_generar(cargar(), [tarea("T-023 HITO", "En progreso", ["A", "B"])])
+    with tempfile.TemporaryDirectory() as tmp:
+        texto = generar_en(tmp, mod)
+    modulos = texto.split("## Módulos")[1].split("## Tareas")[0]
+    assert "| A |" in modulos and "| B |" in modulos, modulos
+
+
+@caso("estado del modulo: derivado con la regla, y la regla se imprime")
+def _():
+    mod = cargar()
+    assert mod._estado_del_modulo(["Terminado", "En progreso"]) == "En progreso"
+    assert mod._estado_del_modulo(["Terminado", "Terminado"]) == "Terminado"
+    assert mod._estado_del_modulo(["Bloqueada", "Terminado"]) == "Bloqueado"
+    assert mod._estado_del_modulo(["Bloqueada", "Disponible"]) == "Disponible"
+    assert mod._estado_del_modulo([]) == "Sin tareas"
+    preparar_generar(mod, TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        texto = generar_en(tmp, mod)
+    assert "derivado de sus tareas" in texto, "un estado derivado debe decir cómo"
+
+
+@caso("columna renombrada a medias (ESTADOS y semantica no cuadran): MUERDE")
+def _():
+    mod = cargar()
+    mod.ESTADOS = ["Disponible", "Bloqueada", "Doing", "Review", "Terminado"]
+    try:
+        mod.tablas(TRES, "X", "2026-07-26")
+        raise AssertionError("deberia haber fallado")
+    except mod.ErrorDeConfiguracion as e:
+        assert "En progreso" in str(e) and "EN_CURSO" in str(e), e
+
+
+@caso("`gh` falla al listar: no se escribe nada y se orienta sobre el scope")
+def _():
+    mod = cargar()
+    mod._graphql = lambda ambito: proyecto(TODAS) if ambito == "user" else None
+    mod.subprocess.run = lambda cmd, **kw: subprocess.CompletedProcess(
+        cmd, 1, "", "your token has not been granted the required scopes")
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            generar_en(tmp, mod)
+            raise AssertionError("deberia haber fallado")
+        except mod.ErrorDeConfiguracion as e:
+            assert "gh auth refresh -s project" in str(e), e
+        assert not (Path(tmp) / "progreso" / "tablero-equipo.md").exists()
+
+
+@caso("main() --generar informa de que el log no se ha tocado")
+def _():
+    import io
+    import contextlib
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = str(Path(tmp) / "progreso" / "tablero-equipo.md")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            codigo = mod.main(["--generar", ruta])
+    assert codigo == 0, codigo
+    assert "log de reclamos no se ha tocado" in buf.getvalue(), buf.getvalue()
+
+
+@caso("main() --generar que falla: avisa de que el archivo es de ANTES")
+def _():
+    import io
+    import contextlib
+    mod = cargar(owner="{{OWNER}}")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        codigo = mod.main(["--generar"])
+    salida = buf.getvalue()
+    assert codigo == 1, codigo
+    assert "NO se ha actualizado" in salida, salida
+    assert "reclamo" not in salida, "ese aviso es el de --mover, aqui no aplica"
 
 
 def main() -> int:

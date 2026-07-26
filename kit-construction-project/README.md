@@ -201,14 +201,17 @@ gh auth refresh -s project       # TRAMPA COMÚN: el token normal NO trae scope 
 
 1. **Repo:** `git init` + primer commit + `gh repo create` (preguntar nombre y
    visibilidad). Beneficio: el repo compartido es la fuente de verdad del equipo.
-2. **Issues desde el backlog:** un `gh issue create` por tarea T-nnn, y añadir el
-   `(#N)` resultante a la cabecera de cada tarea en el backlog. Beneficio: activa la
-   guarda de coherencia backlog↔issues del CI.
+2. **Issues desde el backlog:** un `gh issue create` por tarea T-nnn **con su label
+   `modulo:X`** (`--label modulo:A`), y añadir el `(#N)` resultante a la cabecera de
+   cada tarea en el backlog. Beneficio: activa la guarda de coherencia backlog↔issues
+   del CI, y es el label que agrupa el tablero generado (sin él, la tarea sale bajo
+   `(sin módulo)`).
 3. **Project:** `gh project create` + enlazar al repo + añadir los issues como items.
    Beneficio: tablero con estados que `/que-toca` y `/cerrar-sesion` mueven solos.
 4. **Conectar el tablero:** poner `OWNER` y `PROJECT_NUMBER` en
-   `scripts/tablero.py` y comprobarlo con `python3 scripts/tablero.py --comprobar`.
-   Beneficio: sin esto las skills asignan el issue pero no mueven la tarjeta.
+   `scripts/tablero.py`, comprobarlo con `python3 scripts/tablero.py --comprobar` y
+   generarlo por primera vez con `--generar`. Beneficio: sin esto las skills asignan
+   el issue pero no mueven la tarjeta, y el tablero del repo no refleja nada.
 5. **Colaboradores (si hay equipo):** `gh api repos/{owner}/{repo}/collaborators/{usuario} -X PUT`
    (les llega invitación por email) y darles acceso al Project. Beneficio: cada dev
    clona y su Claude ya trae el protocolo completo.
@@ -328,11 +331,45 @@ PROJECT_NUMBER = "1"      # lo ves en la URL del Project
 python3 scripts/tablero.py --comprobar   # ¿está todo conectado?
 python3 scripts/tablero.py --ids         # los IDs, en JSON
 python3 scripts/tablero.py --mover <ITEM_ID> "En progreso"
+python3 scripts/tablero.py --generar     # reescribe progreso/tablero-equipo.md
 ```
 
 Si falta configuración, si el Project no existe, si el token no tiene alcance de
 Projects o si alguien **renombró una columna**, el script para y dice cuál es el
 problema (y qué columnas tiene el tablero de verdad) en vez de fallar a medias.
+
+## El tablero se genera; el log de reclamos jamás
+
+El estado de una tarea vivía duplicado a mano en el Project y en
+`progreso/tablero-equipo.md`. En dos días de uso real eso derivó **tres veces**, y
+una de ellas hubo que ir al `git log` para dirimir cuál de las tres fuentes decía
+la verdad. Lo que nadie teclea no puede desviarse: `--generar` reescribe la tabla
+desde el Project.
+
+Lo que **no** se genera nunca es el log de reclamos, y esa frontera importa:
+
+| Se genera | No se genera jamás |
+|---|---|
+| En qué columna está una tarea | Por qué se atascó |
+| Quién la tiene asignada | Qué trampa costó un intento fallido |
+| Cuántas quedan abiertas por módulo | Qué acuerdo se tomó al partir un módulo |
+
+La tabla es un hecho mecánico; el log es causalidad. Un generador de logs
+produciría texto plausible y vacío, y se perdería justo lo que mejor funciona.
+
+Detalles que evitan sorpresas:
+
+- El módulo de cada tarea sale del **label `modulo:X`** del issue. Las que no lo
+  llevan no desaparecen: caen en `(sin módulo)`, que es la forma de que se note.
+- Solo se listan las tareas **abiertas**; de las terminadas se da el número. Está
+  dicho en el propio archivo, que es lo que separa un resumen de una lista que miente.
+- Si el listado del Project viene **recortado**, no escribe nada: un tablero a medias
+  no se lee como incompleto, se lee como si esas tareas no existieran.
+- Si el archivo **no lleva las marcas** del bloque generado (tablero heredado, escrito
+  a mano), se niega a tocarlo y explica cómo adoptarlo. Nunca pisa lo que escribió una
+  persona.
+- **Sin GitHub Project no hay de dónde generar:** ahí la tabla se mantiene a mano y es
+  el candado del equipo (ver `trabajo_en_equipo.md` §9).
 
 Mover una tarjeta también pasa por aquí, y después **relee el estado para
 confirmar que quedó donde debía**: que la API responda OK no significa que se

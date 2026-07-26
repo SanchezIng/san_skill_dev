@@ -16,9 +16,13 @@
 > **Todo entra por PR, sin excepciones.** El reclamo de una tarea sí debe verse al
 > instante, y por eso el candado vive en GitHub (assignee + estado del Project):
 > es atómico y visible al segundo, sin necesidad de empujar nada. El tablero del
-> repo (`progreso/tablero-equipo.md`) es un **resumen** de eso y viaja en la rama,
-> dentro del PR — llegar unos minutos tarde no rompe nada, porque nadie decide
-> mirándolo. Así `main` puede estar protegida al 100%.
+> repo (`progreso/tablero-equipo.md`) es un **espejo generado** de eso
+> (`python3 scripts/tablero.py --generar`) y viaja en la rama, dentro del PR —
+> llegar unos minutos tarde no rompe nada, porque nadie decide mirándolo. Así
+> `main` puede estar protegida al 100%.
+>
+> **La tabla del tablero no se edita a mano; el log de reclamos no se genera nunca.**
+> Estado → se genera. Por qué se atascó algo → lo escribes tú.
 >
 > *(Si este proyecto NO usa GitHub Project, el tablero es el candado y sí va directo
 > a `main`; entonces `main` no puede protegerse del todo. Un modo u otro, no ambos.)*
