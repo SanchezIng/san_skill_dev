@@ -57,6 +57,44 @@ Dos modos posibles:
 
 En modo rápido: combina los Pasos 2–6 en una sola tanda de preguntas (todas a la vez, con `ask_user_input_v0` agrupando todo), salta confirmaciones intermedias, ve directo al Paso 7 (resumen).
 
+## Antes del Paso 0 — dónde te ejecutas y dónde está el paquete
+
+Dos comprobaciones que van **antes** de la entrevista. Saltárselas no rompe nada de
+forma visible: produce un kit al que le falta la mitad, sin que nadie se entere.
+
+### A. El entorno no siempre es el mismo
+
+Esta skill nació para el chat de claude.ai y hoy también viaja **dentro de proyectos
+de Claude Code**. Los pasos de abajo nombran herramientas del chat; si estás en
+Claude Code, traduce:
+
+| Lo que dicen los pasos | En claude.ai | En Claude Code |
+|---|---|---|
+| `ask_user_input_v0` | esa misma | `AskUserQuestion`, o preguntar en texto (máx 3 por turno) |
+| `present_files` (Paso 10) | esa misma | **escribe los archivos en el repo** y lista al final lo escrito |
+| skill `docx` (Paso 9) | disponible | **no existe**: no ofrezcas "Markdown + Word" en el Paso 2 |
+| "directorio temporal de trabajo" | el temporal | la **raíz del proyecto** |
+
+En Claude Code no hay entrega: hay archivos en disco y un commit. Todo lo demás del
+flujo se aplica igual.
+
+### B. Localiza el paquete — y **para** si no está
+
+Los Pasos 9 y 10 necesitan las plantillas del protocolo y el verificador. En un
+proyecto donde el kit está instalado viven en `SKILLS-PORTABLE/`:
+
+```bash
+ls -d SKILLS-PORTABLE 2>/dev/null \
+  || find . -maxdepth 4 -name CLAUDE-fragmento.md -not -path '*/node_modules/*'
+```
+
+Anota esa ruta: es el `<paquete>` que citan los Pasos 9 y 10.
+
+**Si no aparece, PARA y díselo al usuario.** No sigas "sin autopilotaje" por tu
+cuenta: eso entrega un kit sin las 3 skills del protocolo, sin hooks y sin guardas
+de CI —más de la mitad del valor— y el aviso queda en una línea que se pierde entre
+cincuenta. Que el usuario decida si continuar así o conseguir el paquete primero.
+
 ## Flujo de trabajo
 
 Sigue estos pasos EN ORDEN. No saltes pasos. No generes archivos antes de completar la entrevista.
@@ -89,7 +127,7 @@ Pregunta con `ask_user_input_v0` (una sola llamada con las 4 preguntas):
 
 1. **Modo:** completo (con entrevista por bloques) / rápido (todo de una)
 2. **Idioma de los archivos:** español / inglés
-3. **Formato de entrega:** solo Markdown / Markdown + Word (.docx)
+3. **Formato de entrega:** solo Markdown / Markdown + Word (.docx) — **en Claude Code no ofrezcas la opción Word**: no hay skill `docx` (ver «Antes del Paso 0»)
 4. **Stack tecnológico:** ya lo tengo definido / quiero recomendación
 
 ### Paso 3 — Clasificación del proyecto
@@ -272,9 +310,9 @@ viajan JUNTO a esta skill, en el mismo paquete:
 ```
 
 Lee el `README.md` del paquete ANTES de instanciar: trae la tabla de placeholders, el query
-para descubrir los IDs del GitHub Project y las trampas ya pagadas en el piloto. **Si no
-encuentras esas plantillas junto a la skill, dilo y sigue sin autopilotaje — NO las inventes
-de memoria**: perderías los placeholders y las lecciones, que son todo su valor. Genera:
+para descubrir los IDs del GitHub Project y las trampas ya pagadas en el piloto. Su ruta es el `<paquete>` que localizaste antes del Paso 0. **Si no está, PARA y pregunta** en
+vez de seguir sin autopilotaje por tu cuenta, y NO las inventes de memoria: perderías los
+placeholders y las lecciones, que son todo su valor. Genera:
 
 18. `.claude/skills/equipo-que-toca/SKILL.md` — reclamo de tareas (el candado entre devs)
 19. `.claude/skills/equipo-cerrar-sesion/SKILL.md` — cierre disciplinado; se niega con tests rojos
@@ -315,7 +353,7 @@ Cantidad de fases según tamaño:
 - Mediano: 6-9 fases, subfases en 1-3 fases típicamente
 - Grande: 10-15 fases, subfases en al menos 4-5 fases
 
-Si el usuario eligió "Markdown + Word", genera primero los .md y luego convierte los principales (CLAUDE.md, especificaciones.md, guia_desarrollo.md, ROADMAP.md, README.md) a .docx con la skill `docx`.
+Si el usuario eligió "Markdown + Word" (solo posible donde exista la skill `docx`), genera primero los .md y luego convierte los principales (CLAUDE.md, especificaciones.md, guia_desarrollo.md, ROADMAP.md, README.md) a .docx.
 
 ### Paso 10 — Entrega y guía de arranque
 
@@ -329,7 +367,7 @@ Comprueba contra `.kickstart-state.json` que estén los archivos que esta entrev
 
 Si el script no está (paquete incompleto), dilo y haz esas cuatro comprobaciones a mano — no entregues sin comprobar.
 
-Usa `present_files` para entregar TODOS los archivos generados. En el mensaje final incluye:
+Entrega TODOS los archivos generados: con `present_files` en claude.ai, o **escribiéndolos en el repo** si estás en Claude Code. En el mensaje final incluye:
 
 - Resumen de cada archivo y para qué sirve
 - Pasos exactos para usar el kit con Claude Code:
@@ -389,7 +427,7 @@ Detalle en `references/practicas_dev.md`.
 
 ## Persistencia del progreso
 
-Guarda en `.kickstart-state.json` (con la skill ejecutándose en el directorio temporal de trabajo) toda la información de la entrevista. Estructura:
+Guarda en `.kickstart-state.json`, **en la raíz del proyecto generado** (es donde lo busca `verificar_kit.py`), toda la información de la entrevista. Estructura:
 
 ```json
 {
