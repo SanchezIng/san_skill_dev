@@ -13,9 +13,15 @@
 > que el cambio funciona de verdad. Un hook `SessionStart` inyecta contexto de
 > orientación al arrancar. Lo de abajo queda como referencia de lo que hacen.
 >
-> **Excepción al "todo por PR":** los commits de coordinación del tablero
-> (`progreso/tablero-equipo.md`) van directo a `main` — son coordinación, no código;
-> el reclamo de una tarea debe verse al instante. Todo lo demás entra por PR.
+> **Todo entra por PR, sin excepciones.** El reclamo de una tarea sí debe verse al
+> instante, y por eso el candado vive en GitHub (assignee + estado del Project):
+> es atómico y visible al segundo, sin necesidad de empujar nada. El tablero del
+> repo (`progreso/tablero-equipo.md`) es un **resumen** de eso y viaja en la rama,
+> dentro del PR — llegar unos minutos tarde no rompe nada, porque nadie decide
+> mirándolo. Así `main` puede estar protegida al 100%.
+>
+> *(Si este proyecto NO usa GitHub Project, el tablero es el candado y sí va directo
+> a `main`; entonces `main` no puede protegerse del todo. Un modo u otro, no ambos.)*
 
 ## 📜 Reglas del sistema de conocimiento
 

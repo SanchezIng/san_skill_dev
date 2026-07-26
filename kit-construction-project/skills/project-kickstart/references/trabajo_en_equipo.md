@@ -180,10 +180,24 @@ Si el dominio lo pide, se puede **añadir un módulo nuevo** al catálogo (ej. u
 
 Añadir sección "## Convenciones de Equipo" al CLAUDE.md:
 
-1. **Nadie hace push directo a main.** Todo entra por Pull Request. **Única excepción:**
-   los commits de coordinación del tablero (`progreso/tablero-equipo.md`) van directo a
-   main — son coordinación, no código, y el reclamo de una tarea debe ser visible para
-   todo el equipo al instante (así operan `/que-toca` y `/cerrar-sesion`).
+1. **Nadie hace push directo a main.** Todo entra por Pull Request. La regla exacta
+   **depende de dónde viva el candado de reclamo**, y los dos modos son incompatibles
+   entre sí: elige uno.
+
+   | | **Con GitHub Project** (recomendado) | **Solo tablero markdown** |
+   |---|---|---|
+   | El candado es | assignee del issue + estado del Project | `progreso/tablero-equipo.md` |
+   | Visible al instante | sí, sin push | solo tras `push origin main` |
+   | El tablero del repo es | un **resumen**: viaja en la rama, entra con el PR | la **fuente de verdad**: va directo a `main` |
+   | ¿Se puede proteger `main`? | **sí, al 100%, sin excepciones** | no del todo: hay que permitir ese push |
+
+   **Por qué importa:** el reclamo tiene que ser instantáneo —si pasara por un PR, dos
+   devs reclamarían la misma tarea mientras se mergea—. Pero con Project **ya lo es**:
+   `gh issue edit --add-assignee` es atómico y visible al segundo. Mandar además el
+   tablero a `main` es sincronizar un resumen al precio de dejar la rama sin proteger
+   para siempre. Sin Project, en cambio, el tablero es lo único que hay y el push
+   directo es obligatorio: entonces la protección total de `main` **no es compatible**,
+   y hay que decirlo en vez de recomendar las dos cosas a la vez.
 2. **Todo PR requiere >=1 revisión humana de otro dev.** Regla con IA: *"respondes por lo que tu Claude Code generó"* — si no puedes explicar una línea, no se mergea.
 3. **PRs pequeños** (< ~400 líneas de diff). Subfase grande = varios PRs.
 4. **CI verde obligatorio** para mergear (sección 10).

@@ -7,7 +7,11 @@ description: Protocolo de reclamo de tareas del equipo (el candado central entre
 
 Eres el ejecutor del **candado central de convivencia** entre los devs del equipo:
 el reclamo en GitHub es lo que impide que dos Claudes codeen lo mismo. Ejecuta
-TODOS los pasos en orden. No escribas código de la tarea hasta terminar el paso 6.
+TODOS los pasos en orden. No escribas código de la tarea hasta terminar el paso 7.
+
+**El candado es el paso 4** (assignee + estado del Project), no el tablero del repo:
+ocurre en GitHub, es atómico y lo ve el equipo entero al instante. Todo lo demás es
+preparación o resumen.
 
 ## Datos fijos de este repo
 
@@ -64,28 +68,53 @@ gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: {projec
 **Colisión:** si `--add-assignee` falla o al re-verificar ya tiene assignee → otro dev la
 ganó: volver al paso 3 y elegir otra.
 
-## Paso 5 — Espejo en el repo
+## Paso 5 — Rama de trabajo
+
+```bash
+git checkout -b {{PREFIJO_RAMA}}
+```
+
+## Paso 6 — Espejo en el repo (en la rama, NO en main)
 
 En `progreso/tablero-equipo.md`: actualizar la fila del módulo y añadir línea al log
-append-only (`- YYYY-MM-DD {dev} reclama T-nnn (#N) — {resumen}`). Después:
+append-only (`- YYYY-MM-DD {dev} reclama T-nnn (#N) — {resumen}`). Se commitea **en la
+rama de la tarea** y entra a `main` con el PR:
 
 ```bash
 git add progreso/tablero-equipo.md
 git commit -m "chore(tablero): reclamar T-nnn"
-git push origin main
 ```
 
-(Única excepción permitida al "todo por PR": el tablero es coordinación, no código.)
-Si el push rebota → `git pull --rebase` y reintentar; si el log muestra que otro reclamó
-la misma T-nnn primero, ceder (su reclamo de GitHub manda) y volver al paso 3.
+**Por qué no va directo a main:** el candado ya se echó en el paso 4. El assignee y el
+estado del Project son visibles para todo el equipo **al instante**, y son la verdad
+sobre quién tiene qué. El tablero del repo es un resumen de eso: si llegara tarde, no
+pasa nada, porque nadie decide mirándolo. Mandarlo a `main` obligaría a dejar la rama
+sin proteger para siempre — precio altísimo por sincronizar un resumen.
 
-## Paso 6 — Arrancar con contexto
+> **Excepción — proyecto SIN GitHub Project:** si el tablero markdown es el único
+> registro (no hay Issues ni Project), entonces **el tablero SÍ es el candado**: hay
+> que publicarlo antes de codear y, por tanto, **antes del paso 5** — estando todavía
+> en `main`, no en la rama (desde la rama, `git push origin main` empuja el `main`
+> local, que no tiene el commit):
+>
+> ```bash
+> git add progreso/tablero-equipo.md
+> git commit -m "chore(tablero): reclamar T-nnn"
+> git push origin main          # y solo despues, el paso 5 crea la rama
+> ```
+>
+> Si el push rebota → `git pull --rebase` y reintentar; si el log muestra que otro
+> reclamó la misma T-nnn primero, ceder y volver al paso 3.
+>
+> En ese modo `main` no puede estar protegida del todo: es el precio de no tener el
+> candado en GitHub. Elegir un modo u otro, nunca los dos. Ver `trabajo_en_equipo.md` §9.
 
-1. `git checkout -b {modulo}/{tarea-corta}`
-2. Leer el **handoff más reciente del módulo** (`progreso/fase-*-{modulo}.md`).
-3. Leer la sección de la subfase en `docs/guia_desarrollo.md` (o el issue si es bug/DX).
-4. Invocar la skill **`secure-coding-guard`** (obligatoria antes de la primera línea).
-5. Recién ahora, codear.
+## Paso 7 — Arrancar con contexto
+
+1. Leer el **handoff más reciente del módulo** (`progreso/fase-*-{modulo}.md`).
+2. Leer la sección de la subfase en `docs/guia_desarrollo.md` (o el issue si es bug/DX).
+3. Invocar la skill **`secure-coding-guard`** (obligatoria antes de la primera línea).
+4. Recién ahora, codear.
 
 ## Al terminar la tarea
 

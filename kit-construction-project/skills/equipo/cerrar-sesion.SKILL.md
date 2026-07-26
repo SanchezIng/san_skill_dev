@@ -56,15 +56,21 @@ al mando.
    TODOs pendientes → SIEMPRE al handoff (y si sobreviven a la subfase → abrir issue).
 3. Estos dos archivos van **en el PR** (documentan el cambio), no directo a main.
 
-## Paso 4 — Tablero y Project (coordinación, directo a main)
+## Paso 4 — Tablero y Project
 
-1. `git checkout main && git pull`, actualizar `progreso/tablero-equipo.md`:
-   fila del módulo + línea de log (`- YYYY-MM-DD {dev} abre PR #N (T-nnn/#issue) — {resumen}`).
-2. `git commit -m "chore(tablero): T-nnn en Review (PR #N)" && git push origin main`.
-3. Mover el item del Project (IDs en `/que-toca`): a **Review** al abrir PR;
-   a **Terminado** al mergear. Poner en **Disponible** los items cuyas dependencias
-   quedaron cumplidas ("Depende de" en cada issue) y reflejarlo en el tablero.
-4. Volver a la rama de trabajo si la sesión continúa.
+1. **El estado real se mueve en el Project** (IDs en `/que-toca`): a **Review** al
+   abrir el PR; a **Terminado** al mergear. Poner en **Disponible** los items cuyas
+   dependencias quedaron cumplidas ("Depende de" en cada issue). Esto es lo que ve el
+   equipo y lo que leen las skills: hazlo aunque no toques el tablero.
+2. `progreso/tablero-equipo.md`: fila del módulo + línea de log
+   (`- YYYY-MM-DD {dev} abre PR #N (T-nnn/#issue) — {resumen}`). Va **en la rama de la
+   tarea, dentro del PR** — es un resumen del Project, no una fuente de verdad, así que
+   no justifica saltarse la protección de `main`.
+
+> **Excepción — proyecto SIN GitHub Project:** el tablero es el único registro y sí va
+> directo a `main` (`git checkout main && git pull` → editar → commit → push), volviendo
+> después a la rama de trabajo. En ese modo `main` no puede estar protegida del todo.
+> Ver `trabajo_en_equipo.md` §9.
 
 ## Paso 5 — Reporte final al dev
 
