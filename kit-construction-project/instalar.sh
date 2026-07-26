@@ -169,6 +169,9 @@ echo "OK  .claude/skills/secure-coding-guard"
 if [ "$KIT" != "$DESTINO/SKILLS-PORTABLE" ]; then
     cp -r "$KIT/skills" "$KIT/plantillas" "$KIT/README.md" "$KIT/instalar.sh" \
           "$KIT/VERSION" "$DESTINO/SKILLS-PORTABLE/"
+    # Basura de haber ejecutado los tests en la maquina de origen: no tiene por
+    # que viajar al proyecto del equipo.
+    find "$DESTINO/SKILLS-PORTABLE" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
     echo "OK  SKILLS-PORTABLE/ (el kickstart busca aqui sus plantillas)"
 fi
 

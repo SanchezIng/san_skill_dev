@@ -131,14 +131,33 @@ issue, no mueve la tarjeta).
 
 ## M-05 · 🟠 Límites de paginación que mienten en silencio
 
-**Estado:** pendiente · **Origen:** auditoría 2026-07-25
+**Estado:** hecho (2026-07-26) · **Origen:** auditoría 2026-07-25
 
 `gh project item-list --limit 50` en `/que-toca`: misma clase de bug que el
-`--limit 300` corregido en `docs_check.py`. Un backlog serio pasa de 50 y "la
-Disponible de menor número" deja de serlo, sin aviso.
+`--limit 300` corregido en `docs_check.py`. Pero al auditar apareció algo peor:
+**dos llamadas a `gh issue list` sin `--limit` ninguno**, y el valor por defecto
+de `gh` es **30** (verificado en `gh issue list --help`).
 
-- [ ] Auditar TODOS los `--limit` del kit y paginar o subir el tope.
-- [ ] Cuando se alcance el tope, decirlo en vez de asumir la lista completa.
+La grave era `gh issue list --state open --json number,title,assignees`: se
+pedían *todos* los issues para descartar aquí los que tuvieran dueño. Cortada a
+30, las tareas de más allá del tope **parecían sin assignee por ausencia de
+datos** → `/que-toca` podía dar por libre una tarea que otro dev ya tenía. Es
+decir, el tope silencioso rompía el candado, que es la razón de ser de la skill.
+
+- [x] Auditados todos los listados del kit: ninguno queda sin `--limit`
+      explícito (500 en Project e issues, 200 en "mis tareas", 1000 en
+      `docs_check`).
+- [x] **El filtro pasa al servidor** (`--search "no:assignee"`) en vez de
+      traérselo todo y filtrar en local. Esto invierte la dirección del fallo:
+      una lista truncada ya solo puede **ocultar** tareas libres, nunca
+      inventarlas. De "dos devs sobre la misma tarea" a "hoy ves menos opciones".
+- [x] Regla de truncado explícita en el paso 3: si la cuenta iguala el `--limit`,
+      hay más — subir y repetir, nunca decidir sobre una lista cortada.
+- [x] La lección, generalizada, entra en `verificar.SKILL.md` como **cuarta
+      trampa** junto a las tres de shell: toda herramienta que lista tiene tope y
+      no avisa, y las conclusiones de tipo "no hay ninguno" son justo las que una
+      lista recortada no puede sostener. Y una línea en `CLAUDE-fragmento.md`.
+- [x] De paso: el instalador copiaba `__pycache__` a los proyectos destino.
 
 ## M-06 · 🟠 La pieza más grande no tiene ninguna comprobación
 

@@ -52,6 +52,9 @@
 - **Shell POSIX y binarios nativos no comparten mapa del disco:** una ruta válida
   para el shell puede no serlo para el intérprete. Convertir con
   `{{CMD_CONVERTIR_RUTA}}` antes de pasarla.
+- **Toda lista viene con tope y no avisa** (`gh` trae 30 por defecto). Si vas a
+  concluir "no hay ninguno" o "está libre", pide más de lo que esperas y mira si
+  te devolvieron exactamente el límite: entonces hay más y no los estás viendo.
 
 ## 🗂️ Dónde vive cada cosa
 

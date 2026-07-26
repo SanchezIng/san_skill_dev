@@ -17,7 +17,7 @@ preparación o resumen.
 
 | Qué | Valor |
 |---|---|
-| Project | `gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}}` |
+| Project | `gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --limit 500` |
 | projectId | `{{PROJECT_ID}}` |
 | fieldId Status | `{{STATUS_FIELD_ID}}` |
 | Opciones Status | Disponible=`{{OPT_DISPONIBLE}}` · Bloqueada=`{{OPT_BLOQUEADA}}` · En progreso=`{{OPT_EN_PROGRESO}}` · Review=`{{OPT_REVIEW}}` · Terminado=`{{OPT_TERMINADO}}` |
@@ -34,7 +34,7 @@ Tablero y handoffs frescos. Si hay cambios locales sin commitear, resuélvelos a
 ## Paso 2 — ¿Ya tiene tarea el dev?
 
 ```bash
-gh issue list --state open --assignee @me --json number,title
+gh issue list --state open --assignee @me --limit 200 --json number,title
 ```
 
 Si ya tiene una `En progreso` asignada → **retomarla** (WIP máx 1-2), no reclamar otra.
@@ -44,12 +44,39 @@ Salvo que el dev haya pedido una tarea concreta ("toma T-nnn"): en ese caso esa 
 ## Paso 3 — Buscar tarea disponible
 
 ```bash
-gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 50   # status por tarea
-gh issue list --state open --json number,title,assignees             # assignees
+# Estado por tarea. El limite va alto A PROPOSITO: por defecto gh trae 30.
+gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 500
+
+# Quien NO tiene dueño. Filtra el SERVIDOR, no nosotros: traerse todos los
+# issues y descartar aqui es lo que hacía que se colaran los de más allá del tope.
+gh issue list --state open --search "no:assignee" --limit 500 --json number,title
 ```
+
+**Antes de concluir nada, comprueba que las listas no vienen cortadas:** si
+alguna devuelve exactamente tantos elementos como el `--limit`, es que hay más y
+no los estás viendo. En ese caso **sube el límite y repite** — nunca decidas
+sobre una lista truncada.
+
+> Por qué este aviso, y por qué el filtro va en el servidor: antes se pedían
+> **todos** los issues y se descartaban aquí los que tuvieran assignee. Con el
+> tope por defecto (30), en un proyecto normal la lista se cortaba y las tareas
+> de más allá del tope no aparecían — con lo cual **parecían sin dueño por
+> ausencia de datos**. Eso no es "faltan opciones": es `/que-toca` dando por
+> libre una tarea que otro dev ya tiene, justo lo que el candado existe para
+> impedir.
+>
+> Preguntando directamente por `no:assignee`, una lista truncada ya solo puede
+> **ocultar** tareas libres, nunca inventarlas. El fallo pasa de "dos devs sobre
+> la misma tarea" a "hoy ves menos opciones": sigue siendo un fallo, pero cae del
+> lado seguro. Por eso el aviso de arriba sigue haciendo falta, y por eso el
+> orden importa — un límite que miente en silencio es peor que un error.
 
 Elegir la de **menor número** entre las `Disponible` sin assignee (o del módulo que el
 dev prefiera). Anotar el `id` del item (campo `id` donde `content.number == N`).
+
+Si el Project dice `Disponible` pero el issue **no** sale en la lista de "sin
+assignee", está cogido: el Project va desactualizado, no al revés. La verdad
+sobre quién tiene qué es el assignee del issue.
 
 ## Paso 4 — Reclamar (el candado)
 

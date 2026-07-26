@@ -98,6 +98,24 @@ Aplican a cualquier proyecto; las dos últimas, sobre todo en entornos mixtos
    shell la abra sin problema. Convierte la ruta antes de pasarla
    ({{CMD_CONVERTIR_RUTA}}) o trabaja con rutas nativas de punta a punta.
 
+### Y una cuarta, de la misma familia: la lista truncada
+
+Casi toda herramienta que **lista** cosas tiene un tope por defecto, y casi
+ninguna avisa de que lo alcanzó. `gh issue list` y `gh project item-list` traen
+30 elementos salvo que pidas más; `git log` pagina; muchas APIs devuelven 100 por
+página. El comando termina con exit 0 y una respuesta bien formada: simplemente
+**no es toda**.
+
+Es la trampa más peligrosa de las cuatro porque el resultado parcial *parece*
+completo, y las conclusiones que se sacan son del tipo "no hay ninguno" o "está
+libre" — afirmaciones sobre lo que **no** existe, que es justo lo que una lista
+recortada no puede sostener.
+
+Regla: cuando cuentes o concluyas ausencia sobre una lista, **pide más de lo que
+esperas y comprueba si te devolvieron exactamente el tope**. Si la cuenta iguala
+el límite, asume que hay más. Y cuando se pueda, deja filtrar al servidor
+(`--search "no:assignee"`) en vez de traértelo todo y filtrar tú.
+
 ## Al terminar
 
 Reporta QUÉ observaste (estados, códigos, tiempos), no solo "todo bien". Si no
