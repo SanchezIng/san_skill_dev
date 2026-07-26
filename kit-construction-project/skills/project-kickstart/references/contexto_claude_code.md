@@ -164,8 +164,15 @@ Cierra esta sesión y abre una nueva si:
 
 ### Archivos cortos
 
-- Convención del proyecto: **ningún archivo de código supera ~300 líneas**
-- Si se acerca al límite, se divide por responsabilidad
+- Convención del proyecto: **preferir ~300 líneas** por archivo de código
+- **No es un tope duro.** Superarlo está bien cuando el archivo lo pide: una
+  máquina de estados, un parser, una suite de tabla que se lee mejor de corrido.
+  Lo que no vale es superarlo por inercia
+- El criterio real es **cuántas responsabilidades hay dentro**, no el número. Si
+  son varias conviviendo, se divide aunque tenga 200 líneas; si es una sola
+  cohesionada, 500 pueden estar bien
+- Partir un archivo cohesionado solo para cumplir la cifra deja algo peor: dos
+  archivos que hay que leer juntos y una frontera que no significa nada
 - Esta convención se documenta en CLAUDE.md y se aplica desde Fase 1
 
 ### Naming predecible
@@ -259,5 +266,6 @@ Antes de dar por terminada la generación:
 - [ ] CLAUDE.md incluye el indicador de cierre de sesión
 - [ ] CLAUDE.md incluye la lista de archivos críticos
 - [ ] `progreso/estado-actual.md` se incluye como plantilla vacía
-- [ ] Existe convención explícita de archivos cortos (~300 líneas máx)
+- [ ] Existe convención explícita de archivos cortos (~300 líneas de referencia,
+      no tope duro)
 - [ ] Existe convención explícita de naming

@@ -184,6 +184,7 @@ copiar "$KIT/plantillas/hooks/recordar-seguridad.sh" "$DESTINO/.claude/hooks/rec
 # El test viaja con el hook: un hook silencioso es indistinguible de un hook
 # roto, asi que el equipo tiene que poder comprobarlo en su maquina.
 copiar "$KIT/plantillas/hooks/test_recordar-seguridad.sh" "$DESTINO/.claude/hooks/test_recordar-seguridad.sh"
+copiar "$KIT/plantillas/hooks/test_arranque.sh" "$DESTINO/.claude/hooks/test_arranque.sh"
 if [ -f "$DESTINO/.claude/settings.json" ]; then
     # No se pisa un settings.json existente: puede tener config propia del dev.
     # Pero entonces el hook PreToolUse no llega solo, y ese es justo el caso de

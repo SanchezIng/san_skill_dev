@@ -28,7 +28,9 @@ Lo que el kit hace solo desde entonces:
 | Tablero mantenido a mano en tres sitios | Se genera desde el Project — pero el log de reclamos **jamás** |
 | `npm audit` sin decir qué hacer con el resultado | Allowlist caducable que falla en cuatro casos |
 | Ramas largas por diseño, sin instrumento | Aviso de deriva: uno por PR, que se edita en vez de repetirse |
-| ~2.900 líneas de kickstart sin comprobación | Guarda de sus propias promesas (enlaces, plantillas, placeholders) |
+| ~2.900 líneas de kickstart sin comprobación | Guarda de sus promesas, y **verificador del kit generado** antes de entregarlo |
+| Guardas que llegan desactivadas y se olvidan | El hook de arranque las recuerda cada sesión, con el comando exacto |
+| "Sube `EXIGIR_REVISION` cuando entre otro dev" | La guarda detecta al segundo colaborador y lo exige |
 
 Los detalles de cada una, **incluidos sus límites conocidos**, están en
 [`plan-mejora.md`](plan-mejora.md); qué se rompía en cada caso, en el
@@ -68,7 +70,7 @@ python3 kit-construction-project/kickstart_check.py        # coherencia del kick
 sh      kit-construction-project/test_instalar.sh          # el ciclo real de instalación
 ```
 
-Ocho suites, **161 casos**, todas probando también que muerden:
+Diez suites, **199 casos**, todas probando también que muerden:
 
 | Suite | Casos | Qué protege |
 |---|---|---|
@@ -76,9 +78,11 @@ Ocho suites, **161 casos**, todas probando también que muerden:
 | `test_kickstart_check.py` | 29 | que la guarda del kickstart no acuse en falso ni calle |
 | `test_audit_check.py` | 26 | los cuatro modos de fallo de la allowlist, y fallar cerrado |
 | `test_instalar.sh` | 26 | instalar → configurar → actualizar ×2 → reconciliar |
+| `test_verificar_kit.py` | 21 | que el kit **generado** tenga lo prometido, sin placeholders sueltos |
 | `test_deriva_ramas.py` | 18 | avisar una vez por PR, y no callar cuando no pudo mirar |
+| `test_proteccion_main.py` | 14 | commits sin PR, y que la excepción de trabajar solo caduque |
+| `test_arranque.sh` | 13 | que las guardas sin activar no se queden pendientes en silencio |
 | `test_docs_check.py` | 12 | enlaces rotos y coherencia backlog↔issues |
-| `test_proteccion_main.py` | 10 | que un commit sin PR en `main` se detecte |
 | `test_recordar-seguridad.sh` | 9 | el hook de seguridad al tocar código |
 
 Las corre [`.github/workflows/kit.yml`](.github/workflows/kit.yml) en cada push y

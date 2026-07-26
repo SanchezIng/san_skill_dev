@@ -38,6 +38,12 @@ jobs:
       - name: Aviso de deriva de ramas
         run: python3 kit-construction-project/plantillas/ci/test_deriva_ramas.py
 
+      - name: Verificador de la salida del kickstart
+        run: python3 kit-construction-project/test_verificar_kit.py
+
+      - name: Hook de arranque (avisa de guardas sin activar)
+        run: sh kit-construction-project/plantillas/hooks/test_arranque.sh
+
       - name: Resolucion de IDs y movimiento del tablero
         run: python3 kit-construction-project/plantillas/protocolo/test_tablero.py
 
