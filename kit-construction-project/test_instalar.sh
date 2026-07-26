@@ -44,7 +44,7 @@ grep -q '^# modo=--protocolo' "$PROY/SKILLS-PORTABLE/.manifiesto"
 comprobar "el manifiesto recuerda el modo de instalacion" $?
 
 # --- 2. El equipo configura su proyecto -------------------------------------
-sed -i 's/{{PROJECT_ID}}/PVT_kwHOreal123/g; s/{{OWNER}}/MiEquipo/g' "$SKILL"
+sed -i 's|{{PREFIJO_RAMA}}|mi-modulo/mi-tarea|g; s|{{OWNER}}|MiEquipo|g' "$SKILL"
 # Y ajusta una constante de un script (configuracion que NO es un placeholder).
 sed -i 's/^EXIGIR_REVISION = True/EXIGIR_REVISION = False/' "$PROY/scripts/proteccion_main.py"
 
@@ -63,10 +63,10 @@ sed -i 's|^copiar "$KIT/plantillas/hooks/arranque.sh".*|&\ncopiar "$KIT/plantill
 # --- 4. Actualizar ----------------------------------------------------------
 SALIDA="$(sh "$KIT2/instalar.sh" "$PROY" --actualizar 2>&1)"
 
-grep -q "PVT_kwHOreal123" "$SKILL"
-comprobar "LA CONFIGURACION SOBREVIVE (IDs del Project intactos)" $?
 grep -q "MiEquipo" "$SKILL"
-comprobar "la configuracion sobrevive (owner intacto)" $?
+comprobar "LA CONFIGURACION SOBREVIVE (owner intacto)" $?
+grep -q "mi-modulo/mi-tarea" "$SKILL"
+comprobar "la configuracion sobrevive (convencion de ramas intacta)" $?
 grep -q "^EXIGIR_REVISION = False" "$PROY/scripts/proteccion_main.py"
 comprobar "sobrevive la config que NO es placeholder (constante de script)" $?
 
@@ -97,7 +97,7 @@ else
     true
 fi
 comprobar "la segunda pasada no reactualiza lo ya actualizado" $?
-grep -q "PVT_kwHOreal123" "$SKILL"
+grep -q "MiEquipo" "$SKILL"
 comprobar "LA CONFIG SIGUE VIVA TRAS DOS ACTUALIZACIONES" $?
 printf '%s' "$SALIDA2" | grep -q "CONSERVADOS"
 comprobar "y se sigue avisando de que esta conservado" $?
@@ -115,9 +115,9 @@ PROY3="$TMP/proyecto-reflejo"
 mkdir -p "$PROY3"
 sh "$KIT/instalar.sh" "$PROY3" --protocolo >/dev/null 2>&1
 SKILL3="$PROY3/.claude/skills/equipo-que-toca/SKILL.md"
-sed -i 's/{{PROJECT_ID}}/PVT_reflejo/g' "$SKILL3"
+sed -i "s/{{OWNER}}/MiEquipoReflejo/g" "$SKILL3"
 SALIDA4="$(sh "$KIT2/instalar.sh" "$PROY3" --protocolo 2>&1)"
-grep -q "PVT_reflejo" "$SKILL3"
+grep -q "MiEquipoReflejo" "$SKILL3"
 comprobar "REINSTALAR con el mismo comando tampoco pisa la config" $?
 printf '%s' "$SALIDA4" | grep -q "se ACTUALIZA en vez de reinstalar"
 comprobar "y avisa de que ha cambiado a modo actualizacion" $?
@@ -137,10 +137,10 @@ PROY2="$TMP/proyecto-viejo"
 mkdir -p "$PROY2"
 sh "$KIT/instalar.sh" "$PROY2" --protocolo >/dev/null 2>&1
 SKILL2="$PROY2/.claude/skills/equipo-que-toca/SKILL.md"
-sed -i 's/{{PROJECT_ID}}/PVT_legado/g' "$SKILL2"
+sed -i "s/{{OWNER}}/MiEquipoLegado/g" "$SKILL2"
 rm -f "$PROY2/SKILLS-PORTABLE/.manifiesto"        # simula instalacion pre-manifiesto
 SALIDA3="$(sh "$KIT2/instalar.sh" "$PROY2" --actualizar 2>&1)"
-grep -q "PVT_legado" "$SKILL2"
+grep -q "MiEquipoLegado" "$SKILL2"
 comprobar "sin manifiesto tampoco pisa la configuracion" $?
 printf '%s' "$SALIDA3" | grep -q "no hay SKILLS-PORTABLE/.manifiesto"
 comprobar "y lo dice claramente" $?

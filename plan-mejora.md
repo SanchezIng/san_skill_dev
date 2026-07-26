@@ -120,14 +120,34 @@ rama legada.
 
 ## M-04 · 🟠 El candado depende de IDs pegados a mano, sin validación
 
-**Estado:** pendiente · **Origen:** auditoría 2026-07-25
+**Estado:** hecho (2026-07-26) · **Origen:** auditoría 2026-07-25
 
-`/que-toca` lleva 5+ IDs de GraphQL hardcodeados. Nada comprueba que sigan
-vivos: si el Project se recrea, cambian y la skill falla a medias (asigna el
-issue, no mueve la tarjeta).
+`/que-toca` llevaba **7** IDs de GraphQL pegados a mano. Nada comprobaba que
+siguieran vivos: si el Project se recreaba, cambiaban y la skill fallaba a
+medias — asignaba el issue (`gh issue edit` no necesita IDs) y no movía la
+tarjeta. Un candado a medias es peor que ninguno: el equipo cree que el tablero
+dice la verdad.
 
-- [ ] Descubrir los IDs en ejecución, o autocomprobarlos antes de usarlos.
-- [ ] Si siguen sin rellenar (`{{...}}`), decirlo y parar antes de asignar nada.
+Se eligió **eliminarlos** en vez de validarlos: un ID que se descubre en
+ejecución no puede quedarse obsoleto. Coste: una llamada a la API por
+invocación.
+
+- [x] `plantillas/protocolo/tablero.py` resuelve projectId, fieldId y las
+      opciones por nombre. Funciona con Projects de usuario y de organización.
+- [x] Quedan solo 2 datos a mano (`OWNER`, `PROJECT_NUMBER`): son identidad, no
+      derivables. Sin ellos el script **para** y dice exactamente qué falta.
+- [x] Para con diagnóstico útil ante: Project inexistente, sin alcance de
+      Projects en el token, campo `Status` renombrado, o **columna renombrada**
+      (dice cuál falta y cuáles existen de verdad).
+- [x] **La mutación también vive ahí**, con variables de GraphQL en vez de
+      literales: elimina de raíz la trampa de PowerShell que el kit tenía
+      documentada como lección pagada.
+- [x] Tras mover, **relee el estado** y falla si la tarjeta no quedó donde debía
+      — la regla de `/verificar` aplicada al propio protocolo.
+- [x] 15 tests, incluido el falso éxito exacto: la API responde OK y la tarjeta
+      no se movió.
+- [x] Verificado contra el **Project real** del piloto: resuelve
+      `Motor Facturación SUNAT — MVP` y sus 5 columnas.
 
 ## M-05 · 🟠 Límites de paginación que mienten en silencio
 

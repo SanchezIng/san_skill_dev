@@ -18,10 +18,13 @@ preparación o resumen.
 | Qué | Valor |
 |---|---|
 | Project | `gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --limit 500` |
-| projectId | `{{PROJECT_ID}}` |
-| fieldId Status | `{{STATUS_FIELD_ID}}` |
-| Opciones Status | Disponible=`{{OPT_DISPONIBLE}}` · Bloqueada=`{{OPT_BLOQUEADA}}` · En progreso=`{{OPT_EN_PROGRESO}}` · Review=`{{OPT_REVIEW}}` · Terminado=`{{OPT_TERMINADO}}` |
+| IDs del Project | **se resuelven solos**: `python3 scripts/tablero.py` |
 | Ramas | `{{PREFIJO_RAMA}}` |
+
+> Aquí había siete IDs de GraphQL pegados a mano. Ya no: `scripts/tablero.py`
+> los descubre en cada ejecución, así que no pueden quedarse obsoletos. Si el
+> Project se recrea o alguien renombra una columna, el script **para** con un
+> diagnóstico en vez de dejar el candado a medias.
 
 ## Paso 1 — Sincronizar
 
@@ -86,11 +89,17 @@ Re-verificar que `assignees` sigue vacío JUSTO antes, y entonces:
 gh issue edit <N> --add-assignee @me
 ```
 
-Mover a En progreso (lanzar desde el tool Bash, no PowerShell — las comillas del query se pierden):
+Mover la tarjeta a En progreso (`<ITEM_ID>` es el campo `id` del item del Project,
+no el número del issue):
 
 ```bash
-gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: {projectId: "{{PROJECT_ID}}", itemId: "<ITEM_ID>", fieldId: "{{STATUS_FIELD_ID}}", value: {singleSelectOptionId: "{{OPT_EN_PROGRESO}}"}}) { projectV2Item { id } } }'
+python3 scripts/tablero.py --mover <ITEM_ID> "En progreso"
 ```
+
+El script resuelve los IDs, mueve, y **relee el estado para confirmar que la
+tarjeta quedó donde debía** — que la API responda OK no es que se haya movido.
+Si algo falla, sale con error explicando qué: entonces **no des la tarea por
+reclamada**, porque el tablero no dice lo que crees.
 
 **Colisión:** si `--add-assignee` falla o al re-verificar ya tiene assignee → otro dev la
 ganó: volver al paso 3 y elegir otra.

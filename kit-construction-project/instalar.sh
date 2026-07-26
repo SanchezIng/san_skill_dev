@@ -226,6 +226,11 @@ for nombre in que-toca cerrar-sesion verificar; do
     echo "OK  .claude/skills/equipo-$nombre/SKILL.md"
 done
 
+# Trato con el GitHub Project: resuelve los IDs en ejecucion (antes eran 7
+# placeholders pegados a mano que nadie comprobaba) y mueve las tarjetas.
+copiar "$KIT/plantillas/protocolo/tablero.py" "$DESTINO/scripts/tablero.py"
+copiar "$KIT/plantillas/protocolo/test_tablero.py" "$DESTINO/scripts/test_tablero.py"
+
 copiar "$KIT/plantillas/ci/docs_check.py" "$DESTINO/scripts/docs_check.py"
 copiar "$KIT/plantillas/ci/test_docs_check.py" "$DESTINO/scripts/test_docs_check.py"
 copiar "$KIT/plantillas/ci/docs-check.yml" "$DESTINO/.github/workflows/docs-check.yml"
@@ -256,8 +261,9 @@ fi
 echo
 echo "FALTA (a mano, o pideselo a Claude):"
 echo "  1. Rellenar los {{PLACEHOLDERS}} de las 3 skills — tabla en el README del kit."
-echo "  2. Descubrir los IDs del GitHub Project (query en el README) y pegarlos en"
-echo "     .claude/skills/equipo-que-toca/SKILL.md."
+echo "  2. Poner OWNER y PROJECT_NUMBER en scripts/tablero.py y comprobarlo:"
+echo "       python3 scripts/tablero.py --comprobar"
+echo "     (los IDs de GraphQL ya NO se pegan a mano: se resuelven solos)"
 echo "  3. Pegar plantillas/CLAUDE-fragmento.md en el CLAUDE.md del proyecto."
 echo "  4. Anadir .claude/settings.local.json al .gitignore y COMITEAR todo lo demas."
 echo "  5. Proteger main. Averigua primero cual te toca:"

@@ -149,11 +149,7 @@ skills globales. Dos razones:
 
 | Placeholder | Ejemplo | De dónde sale |
 |---|---|---|
-| `{{OWNER}}` | `SanchezIng` | dueño del repo/Project |
-| `{{PROJECT_NUMBER}}` | `1` | número del GitHub Project |
-| `{{PROJECT_ID}}` | `PVT_kwHO…` | descubrimiento post-creación (ver abajo) |
-| `{{STATUS_FIELD_ID}}` | `PVTSSF_lAHO…` | ídem |
-| `{{OPT_DISPONIBLE}}` … `{{OPT_TERMINADO}}` | `dc541ee6` | ídem |
+| `OWNER` y `PROJECT_NUMBER` (en `scripts/tablero.py`) | `SanchezIng`, `1` | dueño y número del Project (lo ves en su URL) |
 | `{{PREFIJO_RAMA}}` | `{modulo}/{tarea-corta}` | convención del proyecto |
 | `{{CMD_TEST}}` | `docker compose exec app ./vendor/bin/pest` | stack |
 | `{{CMD_LINT}}` | `./vendor/bin/pint --test --dirty` | stack |
@@ -193,9 +189,9 @@ gh auth refresh -s project       # TRAMPA COMÚN: el token normal NO trae scope 
    guarda de coherencia backlog↔issues del CI.
 3. **Project:** `gh project create` + enlazar al repo + añadir los issues como items.
    Beneficio: tablero con estados que `/que-toca` y `/cerrar-sesion` mueven solos.
-4. **IDs:** correr el query de la sección siguiente y pegar los valores en
-   `.claude/skills/equipo-que-toca/SKILL.md`. Beneficio: sin esto las skills asignan
-   el issue pero no mueven la tarjeta.
+4. **Conectar el tablero:** poner `OWNER` y `PROJECT_NUMBER` en
+   `scripts/tablero.py` y comprobarlo con `python3 scripts/tablero.py --comprobar`.
+   Beneficio: sin esto las skills asignan el issue pero no mueven la tarjeta.
 5. **Colaboradores (si hay equipo):** `gh api repos/{owner}/{repo}/collaborators/{usuario} -X PUT`
    (les llega invitación por email) y darles acceso al Project. Beneficio: cada dev
    clona y su Claude ya trae el protocolo completo.
@@ -203,9 +199,10 @@ gh auth refresh -s project       # TRAMPA COMÚN: el token normal NO trae scope 
    que de verdad impide mergear sin revisión; sin él, las reglas "nadie hace push
    directo" y ">=1 revisión" son texto que se cumple por buena voluntad.
 
-Si el usuario prefiere hacerlo a mano o más tarde, respetar la decisión: el paso de
-los IDs queda documentado como tarea de arranque en el CLAUDE.md generado y cualquier
-sesión futura lo detectará pendiente (placeholders `{{…}}` sin rellenar en `/que-toca`).
+Si el usuario prefiere hacerlo a mano o más tarde, respetar la decisión: mientras
+`OWNER`/`PROJECT_NUMBER` sigan sin poner, `scripts/tablero.py` **para con un
+mensaje que dice exactamente qué falta y dónde**, en vez de dejar el candado a
+medias. Cualquier sesión futura lo detecta con `--comprobar`.
 
 ## Proteger `main`: primero averigua si puedes
 
@@ -292,32 +289,47 @@ Las tres salidas para un proyecto serio, en orden: hacer el repo **público**,
 pagar **GitHub Pro**, o asumir que la barrera es detectiva y no preventiva —
 decisión explícita, no un olvido.
 
-## Paso obligatorio: descubrir los IDs del Project
+## Los IDs del Project ya no se pegan a mano
 
-Los IDs GraphQL **no existen hasta crear el GitHub Project**, que ocurre después de
-generar el kit. Una vez creado:
+Los IDs GraphQL **no existen hasta crear el GitHub Project**, que ocurre después
+de generar el kit. Antes eran siete placeholders que alguien tenía que descubrir
+con una query y pegar sin equivocarse, en el momento de menos contexto del
+proyecto. Y nada comprobaba después que siguieran vivos: si el Project se
+recreaba, `/que-toca` fallaba **a medias** — asignaba el issue y no movía la
+tarjeta, dejando al equipo creyendo que el tablero dice la verdad.
 
-```bash
-gh api graphql -f query='
-query($owner: String!, $number: Int!) {
-  user(login: $owner) {
-    projectV2(number: $number) {
-      id
-      field(name: "Status") {
-        ... on ProjectV2SingleSelectField { id options { id name } }
-      }
-    }
-  }
-}' -f owner=TU_USUARIO -F number=1
+Ahora los resuelve `scripts/tablero.py` en cada ejecución. **Un ID que se
+descubre no puede quedarse obsoleto.** Solo hay que poner dos datos que son
+identidad, no derivables:
+
+```python
+OWNER = "MiEquipo"        # dueño del repo/Project
+PROJECT_NUMBER = "1"      # lo ves en la URL del Project
 ```
 
-Pega los valores en `equipo-que-toca/SKILL.md`. Sin esto, `/que-toca` puede reclamar el
-issue en GitHub pero no mover el estado en el tablero.
+```bash
+python3 scripts/tablero.py --comprobar   # ¿está todo conectado?
+python3 scripts/tablero.py --ids         # los IDs, en JSON
+python3 scripts/tablero.py --mover <ITEM_ID> "En progreso"
+```
+
+Si falta configuración, si el Project no existe, si el token no tiene alcance de
+Projects o si alguien **renombró una columna**, el script para y dice cuál es el
+problema (y qué columnas tiene el tablero de verdad) en vez de fallar a medias.
+
+Mover una tarjeta también pasa por aquí, y después **relee el estado para
+confirmar que quedó donde debía**: que la API responda OK no significa que se
+haya movido. Eso, de paso, elimina la trampa de PowerShell de la sección
+siguiente — los valores viajan como variables de GraphQL, no como literales
+entre comillas.
 
 ## Lecciones del piloto (ya pagadas — no las repitas)
 
 - **`gh api graphql` con literales entre comillas falla desde PowerShell** (pierde las
-  comillas → error `ID!`). Lanzarlo desde Bash.
+  comillas → error `ID!`). *Resuelta de raíz:* todo el GraphQL del protocolo vive en
+  `scripts/tablero.py`, que pasa los valores como **variables** de GraphQL en una
+  lista argv. Sin literales no hay comillas que perder y da igual el shell. Si
+  escribes GraphQL nuevo a mano, la lección sigue aplicando.
 - **Prueba que las guardas MUERDEN**, no solo que pasan en verde: rompe un enlace a
   propósito y marca una tarea `Done` con su issue abierto. Una guarda que nunca se ha
   visto fallar no está verificada.
