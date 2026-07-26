@@ -119,6 +119,7 @@ skills globales. Dos razones:
 | `{{CMD_LINT}}` | `./vendor/bin/pint --test --dirty` | stack |
 | `{{CMD_ESTATICO}}` | `./vendor/bin/phpstan analyse` | stack |
 | `{{RUTA_BACKLOG}}` | `docs/backlog.md` | estructura de docs |
+| `MODO_BACKLOG` (no es placeholder: constante en `scripts/docs_check.py`) | `auto` → `espejado` al terminar de espejar | ver trabajo_en_equipo.md §6 |
 | `{{SMOKE_E2E}}`, `{{AREAS_CRITICAS}}`, `{{CRITERIO_EXITO}}`… | — | el flujo real del proyecto (ver `verificar.SKILL.md`) |
 
 ## Arranque GitHub (Claude lo ejecuta, el usuario decide)
