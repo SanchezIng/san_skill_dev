@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -46,7 +47,26 @@ PREFIJOS_PERMITIDOS: tuple[str, ...] = ("chore(tablero):",)
 # eliminar.
 EXIGIR_REVISION = True
 
+# Excepcion DECLARADA a lo anterior. Si el equipo decide a sabiendas seguir con
+# EXIGIR_REVISION=False aun teniendo mas de un colaborador (p.ej. el segundo
+# tiene acceso pero no revisa aqui), se anota aqui y la guarda pasa a AVISAR en
+# vez de fallar. Misma forma que la allowlist del audit y por la misma razon: una
+# excepcion sin motivo escrito y sin caducidad deja de ser una excepcion y se
+# convierte en el estado normal, que es el que nadie vuelve a mirar.
+#
+#   REVISION_RELAJADA = {"motivo": "...", "vence": "AAAA-MM-DD"}
+#
+# Mal declarada (sin motivo, sin fecha, caducada, o a mas de MAX_DIAS_EXCEPCION
+# vista) NO silencia nada: la guarda falla igual.
+REVISION_RELAJADA: dict[str, str] | None = None
+MAX_DIAS_EXCEPCION = 180
+
 SHA_NULO = "0" * 40
+
+# Prefijo de los hallazgos que son de CONFIGURACION de la guarda, no de commits
+# que se saltaron el protocolo. Los remedios son distintos y el resumen final los
+# separa: contarlos juntos haria que el reporte mintiera sobre lo que paso.
+MARCA_CONFIG = "configuracion: "
 
 
 def _git(*args: str) -> str:
@@ -98,6 +118,35 @@ def _humanos_con_acceso() -> list[str] | None:
     )
 
 
+def _excepcion_mal_declarada(exc: dict, hoy: date | None = None) -> str:
+    """Cadena vacia si la excepcion es valida; el problema concreto si no.
+
+    Una excepcion mal escrita no silencia nada: si lo hiciera, bastaria con poner
+    cualquier cosa ahi para apagar la guarda, que es lo contrario de decidir a
+    sabiendas.
+    """
+    hoy = hoy or date.today()
+    if not exc.get("motivo"):
+        return ("REVISION_RELAJADA no declara 'motivo'. Una excepcion sin razon "
+                "escrita no se puede reevaluar: nadie sabra por que se acepto.")
+    texto = exc.get("vence")
+    if not texto:
+        return ("REVISION_RELAJADA no declara 'vence'. Sin caducidad la excepcion "
+                "se vuelve el estado normal, y el estado normal no se revisa.")
+    try:
+        vence = datetime.strptime(str(texto), "%Y-%m-%d").date()
+    except ValueError:
+        return f"REVISION_RELAJADA tiene 'vence' invalido ({texto}), formato AAAA-MM-DD."
+    if vence < hoy:
+        return (f"La excepcion de revision CADUCO el {texto}. Reevalua: o el "
+                f"segundo colaborador revisa de verdad (EXIGIR_REVISION = True), "
+                f"o su acceso sobra en este repo, o renuevas con motivo nuevo.")
+    if vence > hoy + timedelta(days=MAX_DIAS_EXCEPCION):
+        return (f"La excepcion vence el {texto}, a mas de {MAX_DIAS_EXCEPCION} dias "
+                f"vista. Una excepcion tan larga deja de revisarse; acorta la fecha.")
+    return ""
+
+
 def revision_desactivada_con_equipo() -> list[str]:
     """La excusa de trabajar en solitario caduca cuando deja de ser cierto."""
     if EXIGIR_REVISION:
@@ -113,8 +162,18 @@ def revision_desactivada_con_equipo() -> list[str]:
         return []
     if len(humanos) < 2:
         return []
+
+    if REVISION_RELAJADA is not None:
+        problema = _excepcion_mal_declarada(REVISION_RELAJADA)
+        if problema:
+            return [MARCA_CONFIG + problema]
+        print(f"(AVISO: revision relajada a sabiendas hasta "
+              f"{REVISION_RELAJADA.get('vence')} — {REVISION_RELAJADA.get('motivo')})")
+        return []
+
     return [
-        f"EXIGIR_REVISION=False pero el repo ya tiene {len(humanos)} colaboradores "
+        MARCA_CONFIG
+        + f"EXIGIR_REVISION=False pero el repo ya tiene {len(humanos)} colaboradores "
         f"humanos ({', '.join(humanos)}).\n"
         f"        Esa excepcion existia solo para trabajar en solitario, porque "
         f"GitHub no deja aprobar el PR propio.\n"
@@ -178,11 +237,23 @@ def main(argv: list[str]) -> int:
     fallos = revisar(argv[1], argv[2])
     for fallo in fallos:
         print(f"FALLO {fallo}")
-    if fallos:
-        print(f"\n{len(fallos)} commit(s) entraron a main saltandose el protocolo.")
+    # Dos clases de hallazgo con remedios distintos: un commit que se salto el
+    # protocolo se revisa o se revierte; una guarda mal configurada se
+    # reconfigura. Contarlos juntos haria que el resumen mintiera sobre lo que
+    # acaba de pasar, que es justo el falso exito que este kit persigue.
+    de_config = [f for f in fallos if f.startswith(MARCA_CONFIG)]
+    de_commits = [f for f in fallos if not f.startswith(MARCA_CONFIG)]
+
+    if de_commits:
+        print(f"\n{len(de_commits)} commit(s) entraron a main saltandose el protocolo.")
         print("Esta guarda no puede impedirlo (hace falta proteccion de rama, que")
         print("exige repo publico o GitHub Pro). Lo que hace es que no pase")
         print("inadvertido: revisa el cambio y, si procede, revierte o abre el PR.")
+    if de_config:
+        print(f"\n{len(de_config)} problema(s) de CONFIGURACION de la guarda.")
+        print("Nadie se salto el protocolo: lo que pasa es que la guarda ya no")
+        print("vigila lo que cree vigilar. Se arregla en scripts/proteccion_main.py.")
+    if fallos:
         return 1
     print("main integra: todo llego por PR revisado.")
     return 0
