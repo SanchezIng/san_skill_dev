@@ -3,6 +3,50 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-26 (2) — La pieza más grande deja de estar sin vigilar
+
+**M-06.** `project-kickstart` son ~2.900 líneas de prosa que nadie ejecuta: una
+skill que un Claude lee para generar el kit de un proyecto nuevo. No se puede
+testear la prosa, pero sí **las promesas que hace sobre sí misma**, y ninguna
+estaba comprobada. `kickstart_check.py` exige que las dos listas de archivos a
+generar (Paso 9 y `plantillas.md`) cuadren, que cada archivo prometido tenga
+plantilla, que las rutas y enlaces existan, que las secciones citadas de otro
+documento sigan ahí, y que todo `{{PLACEHOLDER}}` esté documentado.
+
+Lo que destapó al primer intento:
+
+- **10 placeholders reales sin documentar**, todos de `verificar.SKILL.md`
+  (`{{CUANDO_NIVEL_2}}`, `{{PASO_PREPARACION}}`, `{{N_TESTS}}`…). La tabla del
+  README los cubría con un "…", así que se instalaban tal cual y el proyecto
+  arrancaba con `{{...}}` dentro de su runbook. Ahora tienen sus 11 filas.
+- **Dos falsos positivos de la propia guarda**, corregidos antes de dar por
+  bueno ningún veredicto: las cabeceras `## ARCHIVO n` no se buscaban en modo
+  multilínea (no contaba ninguna, y las delegaciones tapaban el hueco) y
+  `references/x.md` se resolvía siempre contra el kickstart, acusando a las
+  cinco referencias legítimas de `secure-coding-guard`. Los dos con test de
+  regresión: una guarda que acusa en falso se acaba desactivando.
+
+Detalles que importan más de lo que parecen:
+
+- **Los bloques de código no son estructura.** Un `## 4.` o un `## ARCHIVO 99:`
+  dentro de un fence es un ejemplo. Sin esa distinción el kit se denunciaría a
+  sí mismo por documentarse y —peor— una plantilla de ejemplo taparía la
+  ausencia de la real.
+- **Lección de M-05 aplicada de vuelta:** si el inventario del paquete sale
+  vacío, la guarda muerde en vez de anunciar "todo OK". Un paquete que no se
+  pudo leer no sostiene ninguna conclusión sobre lo que le falta.
+- **Se dice lo que NO cubre:** esto valida la plantilla, no la generación. Un
+  Claude que ignore la plantilla sigue pudiendo generar cualquier cosa; el
+  `--dry-run` con entrevista de fixture queda pendiente y anotado.
+
+Verificada que muerde contra el paquete **real**, no solo contra los sintéticos:
+renumerar `trabajo_en_equipo.md` §9 destapa las 5 citas que quedarían mintiendo.
+29 casos nuevos (`test_kickstart_check.py`), cada regla en los dos sentidos.
+
+Y una ausencia que nadie había notado: **ninguna suite del kit se ejecutaba
+sola**. El único workflow era el de protección de `main`. `.github/workflows/kit.yml`
+corre las siete en cada push y PR, con las guardas antes que lo que vigilan.
+
 ## 2026-07-26 — El kit deja de depender de que alguien se acuerde
 
 Cinco mejoras del [plan](plan-mejora.md), los tres 🔴 incluidos. El hilo común:

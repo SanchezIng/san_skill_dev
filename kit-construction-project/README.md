@@ -157,7 +157,24 @@ skills globales. Dos razones:
 | `{{RUTA_BACKLOG}}` | `docs/backlog.md` | estructura de docs |
 | `{{CMD_CONVERTIR_RUTA}}` | `cygpath -w <ruta>` (Windows) · `—` (Linux/macOS) | plataforma |
 | `MODO_BACKLOG` (no es placeholder: constante en `scripts/docs_check.py`) | `auto` → `espejado` al terminar de espejar | ver trabajo_en_equipo.md §6 |
-| `{{SMOKE_E2E}}`, `{{AREAS_CRITICAS}}`, `{{CRITERIO_EXITO}}`… | — | el flujo real del proyecto (ver `verificar.SKILL.md`) |
+
+Los de `verificar.SKILL.md` describen el runbook real del proyecto y van todos
+en ese archivo. Si un nivel no aplica, **bórralo entero** en vez de dejar sus
+placeholders: un runbook con pasos falsos es peor que no tenerlo.
+
+| Placeholder | Ejemplo | De dónde sale |
+|---|---|---|
+| `{{AREAS_CRITICAS}}` | `pagos, firma XML` | zonas donde un fallo silencioso duele |
+| `{{NOTAS_ENTORNO}}` | `Windows: docker compose solo desde PowerShell` | trampas del entorno (o línea vacía) |
+| `{{CMD_LEVANTAR_STACK}}` | `docker compose up -d` | stack |
+| `{{N_TESTS}}` y `{{DURACION_SUITE}}` | `142`, `50 s` | referencia sana de la suite verde |
+| `{{CUANDO_NIVEL_2}}` y `{{CUANDO_NIVEL_3}}` | `si tocaste API o DB`, `si tocaste UI` | cuándo amerita subir de nivel |
+| `{{CMD_SEMBRAR_DEMO}}` | `php artisan db:seed --class=DemoSeeder` | stack |
+| `{{SMOKE_E2E}}` | `./scripts/smoke.sh` | el E2E real del proyecto |
+| `{{DESCRIPCION_SMOKE}}` | `cubre alta→emisión; NO cubre anulación` | qué cubre y qué **no** |
+| `{{PASO_PREPARACION}}` | `iniciar sesión como admin` | el flujo manual |
+| `{{EJEMPLO_LLAMADA}}` | `curl -X POST localhost:8000/api/facturas -d @demo.json` | el camino que se ejercita |
+| `{{CRITERIO_EXITO}}` | `HTTP 201 y el XML firmado en storage/` | observable, no "funciona bien" |
 
 ## Arranque GitHub (Claude lo ejecuta, el usuario decide)
 

@@ -1,0 +1,39 @@
+# Suites del kit. Todas se ejecutan desde su propio directorio (cada script
+# resuelve sus rutas a partir de su ubicacion), asi que el orden no importa y un
+# fallo no depende de donde se lanzo.
+#
+# Las guardas corren ANTES que lo que vigilan cuando eso es posible: si la guarda
+# esta rota, su veredicto sobre el resto no vale nada.
+name: Kit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  suites:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tests de la guarda del kickstart
+        run: python3 kit-construction-project/test_kickstart_check.py
+
+      - name: Coherencia del paquete project-kickstart
+        run: python3 kit-construction-project/kickstart_check.py
+
+      - name: Instalador (instalar / configurar / actualizar / reconciliar)
+        run: sh kit-construction-project/test_instalar.sh
+
+      - name: Guardas de deriva doc-realidad
+        run: python3 kit-construction-project/plantillas/ci/test_docs_check.py
+
+      - name: Guarda de integridad de main (la plantilla)
+        run: python3 kit-construction-project/plantillas/ci/test_proteccion_main.py
+
+      - name: Resolucion de IDs y movimiento del tablero
+        run: python3 kit-construction-project/plantillas/protocolo/test_tablero.py
+
+      - name: Hook de recordatorio de seguridad
+        run: sh kit-construction-project/plantillas/hooks/test_recordar-seguridad.sh

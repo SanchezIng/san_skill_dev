@@ -18,8 +18,8 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-03 🔴 | Protección de rama: del texto al mecanismo | hecho en el kit; activada aquí en modo detectivo |
 | M-04 🟠 | IDs del Project sin validar | hecho |
 | M-05 🟠 | Límites de paginación que mienten | hecho |
-| **M-06** 🟠 | **Smoke test de la salida del kickstart** | **PENDIENTE — siguiente** |
-| M-07 🟠 | Tablero generado en vez de a mano (hallazgo 3) | pendiente |
+| M-06 🟠 | Smoke test de la salida del kickstart | hecho (camino 2; el 1 queda anotado) |
+| **M-07** 🟠 | **Tablero generado en vez de a mano (hallazgo 3)** | **PENDIENTE — siguiente** |
 | M-08 🟠 | Allowlist caducable para `audit` (hallazgo 2) | pendiente |
 | M-09 🟠 | Deriva de ramas largas (hallazgo 4) | pendiente |
 
@@ -27,8 +27,8 @@ Los tres 🔴 están cerrados. Todo el trabajo está **commiteado en local y sin
 publicar**: `git log origin/main..HEAD`. Antes de publicar, ver la nota abierta
 de M-03 sobre la primera ejecución roja de la guarda.
 
-Para retomar: `sh kit-construction-project/test_instalar.sh` y las suites de
-`plantillas/` deben estar verdes antes de tocar nada.
+Para retomar: todas las suites deben estar verdes antes de tocar nada. Las corre
+enteras `.github/workflows/kit.yml`; en local, sus siete pasos.
 
 ---
 
@@ -202,32 +202,53 @@ decir, el tope silencioso rompía el candado, que es la razón de ser de la skil
 
 ## M-06 · 🟠 La pieza más grande no tiene ninguna comprobación
 
-**Estado:** PENDIENTE — es el siguiente · **Origen:** auditoría 2026-07-25
+**Estado:** hecho (2026-07-26) · **Origen:** auditoría 2026-07-25
 
 `project-kickstart` son ~2.900 líneas (SKILL.md + 9 referencias) sin ninguna
-verificación. Es prosa y no se testea directa, pero **su salida sí**: hoy nada
-impide que el kickstart genere un kit con enlaces rotos entre documentos,
-placeholders sin resolver o archivos que promete y no crea. Y es la pieza que
-todo proyecto nuevo toca primero.
+verificación. Es prosa y no se testea directa, pero **sus promesas sobre sí
+misma sí**: hoy nada impedía que la skill prometiera un archivo que ninguna
+plantilla describe, apuntara a una sección renumerada o dejara placeholders que
+nadie sabe que hay que rellenar. Y es la pieza que todo proyecto nuevo toca
+primero.
 
-- [ ] Smoke test: generar el kit para una idea de prueba y correr `docs_check`
-      sobre lo generado (enlaces rotos, estructura, placeholders sin resolver).
+Se hizo el **camino 2** (comprobar la plantilla). El 1 (`--dry-run` con una
+entrevista de fixture) queda pendiente y anotado como límite en la cabecera de
+la propia guarda: esto valida la plantilla, **no la generación** — un Claude que
+ignore la plantilla sigue pudiendo generar cualquier cosa.
 
-**Notas para retomarlo en frío:**
-
-- El material ya está: `docs_check.py` valida enlaces y `test_instalar.sh` ya
-  monta proyectos temporales de punta a punta — ese es el patrón a copiar.
-- Lo difícil no es correr la guarda, es **generar la salida sin una sesión
-  interactiva de Claude**. Dos caminos posibles, decidir cuál:
-  1. Un `--dry-run` del kickstart con respuestas de entrevista predefinidas
-     (ficticias pero completas), guardadas como fixture.
-  2. Comprobar la **plantilla** en vez de la generación: que todos los archivos
-     que el Paso 9 promete existan en `references/plantillas.md` y que sus
-     enlaces internos resuelvan. Más barato y ya atrapa la clase de fallo más
-     común (documento prometido que nadie generó).
-- Empezar por 2: da valor inmediato sin depender de ejecutar el kickstart.
-- Ojo a la lección de M-05 al escribirlo: no concluir "no hay enlaces rotos"
-  sobre una lista de archivos que quizá venga recortada.
+- [x] `kickstart_check.py`: siete reglas sobre el paquete — las dos listas de
+      archivos a generar (Paso 9 ↔ `plantillas.md`) cuadran en número y ruta;
+      cada archivo prometido tiene plantilla o delegación que resuelve; las
+      rutas `<paquete>/…` que declara el Paso 9 existen; enlaces relativos y
+      `references/*.md` resuelven; el inventario de `references/` cuadra con la
+      lista de SKILL.md; las secciones numeradas que un documento cita de otro
+      existen; y todo `{{PLACEHOLDER}}` está documentado en la tabla del README
+      (y al revés: lo documentado se sigue usando).
+- [x] Fences respetados en las dos direcciones: una cabecera `## 4.` o
+      `## ARCHIVO 99:` **dentro** de un bloque es un ejemplo, no estructura. Sin
+      esto el kit se denunciaría a sí mismo por documentarse — y, peor, una
+      plantilla de ejemplo taparía la ausencia de la real.
+- [x] Lección de M-05 aplicada: si el inventario sale vacío la guarda **muerde**
+      en vez de anunciar "todo OK". Un paquete que no se pudo leer no sostiene
+      ninguna conclusión de ausencia.
+- [x] `test_kickstart_check.py`, 29 casos sobre paquetes sintéticos, cada regla
+      en los dos sentidos.
+- [x] **Verificada que muerde contra el paquete real**, no solo contra los
+      sintéticos: renumerar `trabajo_en_equipo.md` §9 destapa las 5 citas reales
+      que quedarían mintiendo (README, dos skills, `plantillas.md` y
+      `proteccion_main.py`).
+- [x] Encontró 10 placeholders reales de `verificar.SKILL.md`
+      (`{{CUANDO_NIVEL_2}}`, `{{PASO_PREPARACION}}`, `{{N_TESTS}}`…) que la
+      tabla del README cubría con un "…". Se instalaban tal cual y nadie sabía
+      que había que rellenarlos. README completado con sus 11 filas.
+- [x] Dos falsos positivos propios corregidos antes de dar nada por bueno: las
+      cabeceras `## ARCHIVO n` no se buscaban en modo multilínea (ninguna
+      contaba), y `references/x.md` se resolvía siempre contra el kickstart, con
+      lo que acusaba a las cinco referencias legítimas de `secure-coding-guard`.
+      Ambos con test de regresión.
+- [x] `.github/workflows/kit.yml`: las siete suites del kit corren en cada push
+      y PR. Antes solo existía el workflow de protección de `main`, así que
+      ninguna suite se ejecutaba sola.
 
 ## M-07 · 🟠 El tablero se mantiene a mano siendo un espejo
 
