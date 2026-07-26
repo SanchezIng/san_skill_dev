@@ -25,9 +25,18 @@ Después abre Claude Code en la raíz del proyecto y di **"tengo una idea…"**.
 Los detalles (modo `--protocolo` para proyectos existentes, placeholders, arranque de
 GitHub) están en el [README del kit](kit-construction-project/README.md).
 
+## Hallazgos de uso real
+
+[`hallazgos/`](hallazgos/) recoge lo que se rompe al usar los kits en proyectos
+de verdad, con evidencia y corrección. Vive **fuera** de las carpetas de los
+kits a propósito: es memoria del catálogo, no contenido que deba viajar a cada
+proyecto instalado.
+
 ## Convenciones del repo
 
 - Cada skill/kit vive en su carpeta con README propio; este README raíz solo es el índice.
+- Los mecanismos (hooks, guardas de CI) llevan tests al lado y se prueban en los
+  dos sentidos: que dejan pasar lo correcto y que **muerden** lo incorrecto.
 - Los kits son autocontenidos: no dependen de nada fuera de su carpeta.
 - Recordatorio al instalar en un proyecto: cada skill va en
   `.claude/skills/<nombre>/SKILL.md` (carpeta = `name:` del frontmatter) — los

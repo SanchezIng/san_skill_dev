@@ -22,6 +22,18 @@ fallo como bloqueo explícito en el handoff y se avisa al dev — nunca cierre s
 - Tests rojos → arreglar antes de seguir (o declarar el bloqueo, ver regla dura).
 - Si el cambio toca {{AREAS_CRITICAS}}: correr también `/verificar` (smoke E2E real).
 
+**Checkpoint de seguridad (segunda red).** Si la sesión tocó código y
+**`secure-coding-guard` no se aplicó**, aplícala AHORA antes de cerrar, y anota
+su resumen (qué se aseguró, hallazgos por severidad, pendientes) en el handoff.
+
+No des por hecho que ya se hizo: la skill se salta con facilidad cuando el
+trabajo **no entró por `/que-toca`** — mergear un PR aprobado, resolver
+conflictos, revisar código ajeno, un hotfix, o retomar tras una pausa. En esos
+casos nadie pasó por el paso que la exige. Haber hecho comprobaciones de
+seguridad sueltas sobre la marcha **no cuenta como haberla aplicado**: sus
+`references/` existen para no depender de qué se le ocurra mirar a quien esté
+al mando.
+
 ## Paso 2 — Commit y PR
 
 1. Stage **explícito** de los archivos de la tarea (nunca `git add -A`: puede arrastrar
