@@ -78,6 +78,13 @@ TOKEN_MAYUSCULAS = re.compile(r"\b[A-Z][A-Z0-9_]{3,}\b")
 SECCION_PLACEHOLDERS = "## Placeholders a rellenar"
 SECCION_REFERENCIAS_SKILL = "## Archivos de referencia"
 
+# Herramientas que solo existen en el chat de claude.ai. La skill nacio alli y
+# hoy viaja dentro de proyectos de Claude Code, donde NO existen: si se nombran
+# sin decir por que traducirlas, un Claude Code improvisa en el paso de entrega,
+# que es justo donde se pierden archivos.
+HERRAMIENTAS_DE_CHAT = ("ask_user_input_v0", "present_files", "skill `docx`")
+SECCION_ENTORNO = "## Antes del Paso 0"
+
 
 # ---------------------------------------------------------------- utilidades
 
@@ -373,8 +380,30 @@ def placeholders_documentados() -> list[str]:
     return fallos
 
 
+def entorno_traducido() -> list[str]:
+    """Si la skill nombra herramientas del chat, tiene que decir su equivalencia.
+
+    Sin esa tabla, un Claude Code que ejecute el kickstart improvisa el paso de
+    entrega — y la improvisacion en la entrega es donde se pierden archivos. El
+    fallo no se ve: sale un kit, solo que incompleto.
+    """
+    texto = _leer(SKILL)
+    usadas = [h for h in HERRAMIENTAS_DE_CHAT if h in texto]
+    if not usadas:
+        return []
+    if SECCION_ENTORNO not in texto:
+        return [f"{SKILL}: nombra herramientas que solo existen en claude.ai "
+                f"({', '.join(usadas)}) y no tiene la seccion '{SECCION_ENTORNO}' "
+                f"que dice como traducirlas en Claude Code."]
+    tramo = "\n".join(_tramo(_sin_fences(texto), SECCION_ENTORNO, ("## Flujo",)))
+    faltan = [h for h in usadas if h not in tramo]
+    return [f"{SKILL}: usa `{h}` pero la seccion '{SECCION_ENTORNO}' no dice su "
+            f"equivalente en Claude Code." for h in faltan]
+
+
 REGLAS = [
     ("inventario", inventario_creible),
+    ("entorno traducido", entorno_traducido),
     ("listas de archivos", listas_coinciden),
     ("plantilla por archivo", cada_archivo_tiene_plantilla),
     ("rutas del paquete", rutas_del_paquete_existen),

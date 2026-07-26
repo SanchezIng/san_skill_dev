@@ -3,6 +3,35 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-26 (7) — La skill hablaba el idioma del entorno equivocado
+
+Al preguntar "¿qué errores dará si Claude Code ejecuta el kit?", la respuesta
+honesta exigía leer `SKILL.md` como si fuera a ejecutarse. Y ahí estaba: la skill
+**nació para el chat de claude.ai** y hoy se instala dentro de proyectos de Claude
+Code, donde tres de las herramientas que nombra **no existen** —
+`ask_user_input_v0`, `present_files` y la skill `docx`— además de dar por sentado
+un "directorio temporal de trabajo" que aquí es la raíz del repo.
+
+No reventaba: Claude improvisa y sale un kit. El problema es *dónde* improvisa —
+en el paso de entrega, que era el que garantizaba que salieran **todos** los
+archivos.
+
+Peor era la otra: el Paso 9 citaba `<paquete>/...` **sin resolver nunca esa ruta**,
+y remataba con *"si no encuentras esas plantillas, dilo y sigue sin autopilotaje"*.
+Es decir, ante una ruta no encontrada el kit se entregaba **sin las 3 skills del
+protocolo, sin hooks y sin guardas de CI** —más de la mitad de su valor— avisando
+en una línea que se pierde entre cincuenta. Degradación silenciosa, que es la
+clase de fallo que este kit persigue.
+
+Ahora hay una sección **antes del Paso 0** con dos comprobaciones: la tabla de
+equivalencias por entorno, y localizar el paquete con la orden de **parar** si no
+aparece, en vez de decidir por su cuenta entregar la mitad.
+
+Y como esto es texto, y el texto se vuelve a romper: `kickstart_check.py` gana una
+octava regla — si `SKILL.md` nombra una herramienta que solo existe en claude.ai,
+la tabla de equivalencias tiene que existir **y nombrarla**. 3 casos nuevos (32 en
+esa suite, 212 en total).
+
 ## 2026-07-26 (6) — Se cierran los dos huecos que quedaban anotados
 
 No son mejoras nuevas del plan: son los dos límites que las mejoras ya cerradas

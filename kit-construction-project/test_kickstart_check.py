@@ -192,6 +192,50 @@ def _():
     assert revisar() == [], revisar()
 
 
+# ------------------------------------------- 0 herramientas de otro entorno
+#
+# La skill nacio en el chat de claude.ai y hoy se instala dentro de proyectos de
+# Claude Code, donde `present_files` y compania NO existen. Nombrarlas sin decir
+# su equivalencia hace que un Claude Code improvise justo en la entrega, que es
+# donde se pierden archivos — y sale un kit incompleto sin que nadie lo note.
+
+SKILL_CON_CHAT = SKILL_MD.replace("Entrega todo.",
+                                  "Usa `present_files` para entregar todo.")
+
+TABLA_ENTORNO = """
+## Antes del Paso 0 — entorno
+
+| Lo que dicen los pasos | En claude.ai | En Claude Code |
+|---|---|---|
+| `present_files` | esa misma | escribe los archivos en el repo |
+
+## Flujo
+"""
+
+
+@caso("nombra `present_files` y no dice como traducirlo: MUERDE")
+def _():
+    fallos = revisar({"skills/project-kickstart/SKILL.md": SKILL_CON_CHAT})
+    assert any("solo existen en claude.ai" in f for f in fallos), fallos
+
+
+@caso("con la tabla de equivalencias: PASA")
+def _():
+    con_tabla = SKILL_CON_CHAT.replace("### Paso 9", TABLA_ENTORNO + "\n### Paso 9")
+    fallos = revisar({"skills/project-kickstart/SKILL.md": con_tabla})
+    assert not any("claude.ai" in f for f in fallos), fallos
+
+
+@caso("tabla que existe pero se deja una herramienta fuera: MUERDE")
+def _():
+    roto = SKILL_CON_CHAT.replace("Usa `present_files` para entregar todo.",
+                                  "Pregunta con `ask_user_input_v0` y usa `present_files`.")
+    con_tabla = roto.replace("### Paso 9", TABLA_ENTORNO + "\n### Paso 9")
+    fallos = revisar({"skills/project-kickstart/SKILL.md": con_tabla})
+    assert any("ask_user_input_v0" in f for f in fallos), fallos
+    assert not any("present_files` pero" in f for f in fallos), "esa si estaba traducida"
+
+
 # --------------------------------------------------------------- 1 inventario
 
 @caso("directorio vacio: MUERDE en vez de decir que todo esta bien")
