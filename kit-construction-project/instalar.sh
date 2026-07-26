@@ -54,6 +54,7 @@ cp "$KIT/plantillas/hooks/arranque.sh" "$DESTINO/.claude/hooks/"
 [ -f "$DESTINO/.claude/settings.json" ] \
     || cp "$KIT/plantillas/hooks/settings.json" "$DESTINO/.claude/settings.json"
 cp "$KIT/plantillas/ci/docs_check.py" "$DESTINO/scripts/"
+cp "$KIT/plantillas/ci/test_docs_check.py" "$DESTINO/scripts/"
 cp "$KIT/plantillas/ci/docs-check.yml" "$DESTINO/.github/workflows/"
 echo "OK  hook de arranque + guardas de deriva"
 

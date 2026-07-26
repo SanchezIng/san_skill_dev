@@ -111,13 +111,44 @@ Tareas mapeadas desde las subfases. Formato:
   - [ ] Request validado
   - [ ] Test de integración pasa
   - [ ] Documentado en OpenAPI
-- Estado: Disponible | En progreso | Review | Done
 ```
 
 El `(#N)` de la cabecera es el número del issue de GitHub: se añade al espejar el
-backlog como Issues (no existe antes). La guarda de CI (`scripts/docs_check.py`) lo
-usa para cotejar que ninguna tarea `Done` tenga su issue abierto — sin `(#N)`, esa
-tarea queda fuera de la verificación.
+backlog como Issues (no existe antes).
+
+### ¿Dónde vive el estado? Tres modos
+
+El campo `Estado:` **solo aparece en el modo local**; el formato de arriba es el
+de un proyecto espejado, que es el recomendado. Se declara en
+`scripts/docs_check.py` con `MODO_BACKLOG`, para que la guarda de CI no tenga que
+adivinarlo:
+
+| `MODO_BACKLOG` | El estado vive en | Qué exige la guarda de CI |
+|---|---|---|
+| `local` | el campo `Estado:` del backlog | nada que cotejar: se salta |
+| `auto` *(por defecto)* | transición: se está espejando | comprueba las tareas que ya declaran `(#N)`; **avisa** de las que faltan sin tumbar el CI |
+| `espejado` | el GitHub Project | **toda** T-nnn declara un issue y ese issue existe |
+
+**Espejado a Issues + Project** es el destino: **quitar el campo `Estado:`** y
+dejar el estado solo en el Project. El backlog se queda como catálogo estable de
+módulo, dependencias y criterios — cosas que no caducan.
+
+> Por qué: un estado duplicado en dos sitios se desfasa, y el que se desfasa es
+> el del doc, porque ningún automatismo lo lee (`/que-toca` y `/cerrar-sesion`
+> trabajan contra el Project). En un proyecto real esto se detectó tarde: la
+> primera tarea seguía marcada `Disponible` con su fase cerrada hacía un mes,
+> y no rompió nada precisamente porque nadie la consultaba. El issue ya repite
+> dependencias y criterios, así que no se pierde información.
+
+**Por qué `auto` no es estricto:** los issues se crean uno a uno (paso 2 del
+arranque de GitHub). Si la guarda exigiera `(#N)` en todas en cuanto existe la
+primera, el CI se pondría rojo en mitad del arranque — el momento en que el
+equipo menos entiende por qué. `auto` valida lo verificable y avisa del resto;
+**al terminar de espejar se pasa a `espejado`**, que es donde la regla muerde.
+
+Si el backlog conserva `Estado:` (proyecto que aún no migró), la guarda sigue
+exigiendo además que una tarea `Done` tenga su issue cerrado — no se rompe nada
+de lo que ya funcionaba.
 
 Una tarea está **disponible** solo si sus dependencias están Terminadas. Cada dev toma tareas disponibles de cualquier módulo no bloqueado, respetando la regla de no invadir un módulo que otro tiene En progreso (salvo tareas internas coordinadas).
 

@@ -1,7 +1,7 @@
 # Guardas de deriva doc<->realidad: un doc que miente es peor que
 # no tener doc — envenena a humanos y LLMs con confianza falsa. Falla el CI si
-# docs/ referencia archivos inexistentes o si el backlog marca Done una tarea
-# cuyo issue sigue abierto.
+# docs/ referencia archivos inexistentes o si el backlog y los issues se
+# contradicen (ver modos en scripts/docs_check.py).
 name: Docs
 
 on:
@@ -17,6 +17,10 @@ jobs:
       issues: read
     steps:
       - uses: actions/checkout@v4
+      # La guarda se prueba a si misma antes de juzgar el repo: una guarda rota
+      # que dice "todo OK" es peor que no tenerla.
+      - name: Tests de la propia guarda
+        run: python3 scripts/test_docs_check.py
       - name: Enlaces relativos + coherencia backlog<->issues
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
