@@ -70,7 +70,7 @@ python3 kit-construction-project/kickstart_check.py        # coherencia del kick
 sh      kit-construction-project/test_instalar.sh          # el ciclo real de instalación
 ```
 
-Diez suites, **199 casos**, todas probando también que muerden:
+Diez suites, **205 casos**, todas probando también que muerden:
 
 | Suite | Casos | Qué protege |
 |---|---|---|
@@ -80,7 +80,7 @@ Diez suites, **199 casos**, todas probando también que muerden:
 | `test_instalar.sh` | 26 | instalar → configurar → actualizar ×2 → reconciliar |
 | `test_verificar_kit.py` | 21 | que el kit **generado** tenga lo prometido, sin placeholders sueltos |
 | `test_deriva_ramas.py` | 18 | avisar una vez por PR, y no callar cuando no pudo mirar |
-| `test_proteccion_main.py` | 14 | commits sin PR, y que la excepción de trabajar solo caduque |
+| `test_proteccion_main.py` | 20 | commits sin PR, y que la excepción de trabajar solo caduque |
 | `test_arranque.sh` | 13 | que las guardas sin activar no se queden pendientes en silencio |
 | `test_docs_check.py` | 12 | enlaces rotos y coherencia backlog↔issues |
 | `test_recordar-seguridad.sh` | 9 | el hook de seguridad al tocar código |

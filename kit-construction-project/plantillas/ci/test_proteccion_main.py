@@ -24,10 +24,14 @@ MODULO = AQUI / "proteccion_main.py"
 def cargar(raiz: Path):
     """Carga el modulo con una configuracion FIJA de test.
 
-    No se heredan `PREFIJOS_PERMITIDOS` ni `EXIGIR_REVISION` del archivo
-    desplegado: cada proyecto los ajusta a su modo, y unos tests que cambian de
-    resultado segun la configuracion del repo no prueban nada. Los casos que
-    dependen de esos valores los fijan ellos mismos.
+    No se heredan `PREFIJOS_PERMITIDOS`, `EXIGIR_REVISION` ni `REVISION_RELAJADA`
+    del archivo desplegado: cada proyecto los ajusta a su modo, y unos tests que
+    cambian de resultado segun la configuracion del repo no prueban nada. Los
+    casos que dependen de esos valores los fijan ellos mismos.
+
+    (Se aprendio ejecutando: al declarar una excepcion de revision en este repo,
+    dos casos que exigian el comportamiento estricto empezaron a pasar por la
+    excepcion. Los tests median la configuracion local, no la regla.)
     """
     spec = importlib.util.spec_from_file_location("proteccion_main", MODULO)
     mod = importlib.util.module_from_spec(spec)
@@ -35,6 +39,7 @@ def cargar(raiz: Path):
     mod.RAIZ = raiz
     mod.PREFIJOS_PERMITIDOS = ("chore(tablero):",)
     mod.EXIGIR_REVISION = True
+    mod.REVISION_RELAJADA = None
     return mod
 
 
@@ -282,6 +287,91 @@ def _(tmp):
     # falsa alarma aqui ensena a ignorar el rojo, que es lo contrario del fin.
     assert fallos == [], fallos
     assert "AVISO" in buf.getvalue(), buf.getvalue()
+
+
+def con_equipo(tmp, relajada="sin tocar"):
+    """Repo con 2 humanos, EXIGIR_REVISION=False y la excepcion que se indique."""
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: algo")
+    mod = cargar(tmp)
+    mod.EXIGIR_REVISION = False
+    if relajada != "sin tocar":
+        mod.REVISION_RELAJADA = relajada
+    mod._api = api_simulada({"*": [{"number": 4}]}, colaboradores=[
+        {"login": "ana", "type": "User"}, {"login": "luis", "type": "User"}])
+    return mod, base, sha
+
+
+def dentro_de(dias):
+    from datetime import date, timedelta
+    return (date.today() + timedelta(days=dias)).isoformat()
+
+
+@caso("excepcion DECLARADA y vigente: avisa en vez de fallar")
+def _(tmp):
+    import contextlib
+    import io
+    mod, base, sha = con_equipo(tmp, {"motivo": "el segundo no revisa aqui",
+                                      "vence": dentro_de(30)})
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        fallos = mod.revisar(base, sha)
+    assert fallos == [], fallos
+    assert "AVISO" in buf.getvalue() and "el segundo no revisa aqui" in buf.getvalue()
+
+
+@caso("excepcion CADUCADA: vuelve a MORDER (no se vuelve permanente)")
+def _(tmp):
+    mod, base, sha = con_equipo(tmp, {"motivo": "x", "vence": "2020-01-01"})
+    fallos = mod.revisar(base, sha)
+    assert len(fallos) == 1 and "CADUCO" in fallos[0], fallos
+    assert "su acceso sobra" in fallos[0], "hay que decir las salidas posibles"
+
+
+@caso("excepcion sin motivo: no silencia nada")
+def _(tmp):
+    mod, base, sha = con_equipo(tmp, {"vence": dentro_de(30)})
+    fallos = mod.revisar(base, sha)
+    assert len(fallos) == 1 and "no declara 'motivo'" in fallos[0], fallos
+
+
+@caso("excepcion sin caducidad: no silencia nada")
+def _(tmp):
+    mod, base, sha = con_equipo(tmp, {"motivo": "porque si"})
+    fallos = mod.revisar(base, sha)
+    assert len(fallos) == 1 and "no declara 'vence'" in fallos[0], fallos
+
+
+@caso("excepcion a 5 anios vista: no silencia nada (la caducidad seria humo)")
+def _(tmp):
+    mod, base, sha = con_equipo(tmp, {"motivo": "x", "vence": dentro_de(1825)})
+    fallos = mod.revisar(base, sha)
+    assert len(fallos) == 1 and "dias vista" in fallos[0], fallos
+
+
+@caso("el resumen NO llama 'commit que se salto el protocolo' a un fallo de config")
+def _(tmp):
+    # La primera ejecucion real de esta regla reporto "1 commit(s) entraron a main
+    # saltandose el protocolo" cuando lo que pasaba era que la guarda estaba mal
+    # configurada. Nadie se habia saltado nada: el resumen mentia sobre el hecho.
+    import contextlib
+    import io
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: entro por PR, todo correcto")
+    mod = cargar(tmp)
+    mod.EXIGIR_REVISION = False
+    mod._api = api_simulada({"*": [{"number": 4}]}, colaboradores=[
+        {"login": "ana", "type": "User"}, {"login": "luis", "type": "User"}])
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        codigo = mod.main(["prog", base, sha])
+    salida = buf.getvalue()
+    assert codigo == 1, codigo
+    assert "CONFIGURACION" in salida, salida
+    assert "commit(s) entraron a main" not in salida, \
+        "ningun commit se salto el protocolo: decirlo seria un falso positivo"
 
 
 @caso("con EXIGIR_REVISION=True ni se pregunta por los colaboradores")
