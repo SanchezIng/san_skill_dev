@@ -25,6 +25,11 @@ Después abre Claude Code en la raíz del proyecto y di **"tengo una idea…"**.
 Los detalles (modo `--protocolo` para proyectos existentes, placeholders, arranque de
 GitHub) están en el [README del kit](kit-construction-project/README.md).
 
+## Historial
+
+[`CHANGELOG.md`](CHANGELOG.md) — qué cambió en cada kit y, sobre todo, **qué se
+rompía**. Un changelog que solo lista archivos no evita repetir el error.
+
 ## Hallazgos de uso real
 
 [`hallazgos/`](hallazgos/) recoge lo que se rompe al usar los kits en proyectos
