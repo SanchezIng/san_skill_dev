@@ -37,8 +37,23 @@ echo
 
 # --- 1. Instalacion inicial -------------------------------------------------
 mkdir -p "$PROY"
-sh "$KIT/instalar.sh" "$PROY" --protocolo >/dev/null 2>&1
+SALIDA_INICIAL="$(sh "$KIT/instalar.sh" "$PROY" --protocolo 2>&1)"
 [ -f "$SKILL" ]; comprobar "instala las skills del protocolo" $?
+
+# El resumen tiene que listar TODOS los placeholders pendientes, no solo los de
+# las skills: {{GESTOR_PAQUETES}} vive en scripts/audit_check.py y quedaba fuera,
+# asi que se rellenaba lo listado y el audit se quedaba sin gestor.
+printf '%s' "$SALIDA_INICIAL" | grep -q '{{GESTOR_PAQUETES}}'
+comprobar "el resumen lista tambien los placeholders de scripts/" $?
+printf '%s' "$SALIDA_INICIAL" | grep -q '{{CUANDO_NIVEL_2}}'
+comprobar "y los que llevan digitos en el nombre" $?
+printf '%s' "$SALIDA_INICIAL" | grep -q '{{NOMBRE_PROYECTO}}'
+comprobar "pero NO los de las plantillas del kickstart (son documentacion)" $([ $? -ne 0 ] && echo 0 || echo 1)
+
+# __pycache__ son binarios del interprete de otra maquina. Ya paso con las
+# plantillas (M-05) y volvio a pasar al meter un .py dentro de la skill.
+[ -z "$(find "$PROY" -name '__pycache__' -print -quit)" ]
+comprobar "NO copia __pycache__ al proyecto destino" $?
 [ -f "$PROY/SKILLS-PORTABLE/.manifiesto" ]; comprobar "deja un manifiesto de lo instalado" $?
 grep -q '^# modo=--protocolo' "$PROY/SKILLS-PORTABLE/.manifiesto"
 comprobar "el manifiesto recuerda el modo de instalacion" $?
