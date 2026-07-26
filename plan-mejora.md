@@ -13,7 +13,7 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 
 ## M-01 · 🔴 Ruta de actualización del kit (hoy reinstalar borra la config)
 
-**Estado:** pendiente · **Origen:** auditoría 2026-07-25 (reproducido)
+**Estado:** hecho (2026-07-26) · **Origen:** auditoría 2026-07-25 (reproducido)
 
 Reinstalar `instalar.sh --protocolo` sobre un proyecto ya configurado
 **sobrescribe** `.claude/skills/equipo-*/SKILL.md` y borra los IDs del Project y
@@ -24,12 +24,30 @@ los comandos del stack ya rellenados. Ocurre en silencio, con exit 0 y mensajes
 Consecuencia estructural: **ninguna mejora del kit llega a los proyectos ya
 instalados**, porque la única vía para traérsela destruye su configuración.
 
-- [ ] Sello de versión del kit (`VERSION` + registro en el proyecto instalado).
-- [ ] `instalar.sh --actualizar`: nunca pisa un archivo cuyos `{{PLACEHOLDER}}`
-      ya estén resueltos; informa de qué quedó sin actualizar y por qué.
-- [ ] El instalador avisa si la copia del destino es más vieja que la del kit.
-- [ ] Test: instalar → rellenar → actualizar → **la configuración sobrevive** y
-      el archivo nuevo llegó.
+- [x] Sello de versión (`VERSION`, por fecha) + sellado en el manifiesto del
+      proyecto instalado, con la versión previa y la nueva al actualizar.
+- [x] `instalar.sh --actualizar`. **Se descartó la heurística de placeholders**
+      del plan original: no habría protegido la configuración que no son
+      placeholders (las constantes de `proteccion_main.py`, por ejemplo). En su
+      lugar, manifiesto de hashes (`git hash-object`, portable y ya disponible):
+      se compara lo que hay contra lo que el kit escribió.
+- [x] Lo modificado se conserva y la versión nueva llega como `<archivo>.nuevo`,
+      con instrucciones de reconciliación. Al reconciliar vuelve a gestionarse solo.
+- [x] Instalaciones anteriores a los manifiestos: no se pisa nada y se explica.
+- [x] **No depende de acordarse del flag:** si ya hay instalación, repetir el
+      comando original también actualiza. El reflejo de reinstalar era justo lo
+      que borraba la configuración.
+- [x] `test_instalar.sh`, 23 casos sobre el ciclo real (instalar → configurar →
+      versión nueva → actualizar ×2 → reconciliar).
+- [x] Verificado que muerde: con el instalador anterior la config se borra; con
+      el nuevo sobrevive.
+- [x] Bug encontrado por los propios tests: al conservar un archivo se registraba
+      el hash del **equipo**, así que la siguiente actualización lo veía "intacto"
+      y lo pisaba — la config sobrevivía una vez y moría a la segunda. El
+      manifiesto registra lo que escribió el **kit**, no lo que hay en disco.
+
+Coste conocido: una instalación pasa de ~1 s a ~5 s en Windows (una llamada a
+`git hash-object` por archivo). Aceptable para algo que se ejecuta una vez.
 
 ## M-02 · 🔴 `/que-toca` empuja a `main` y eso choca con proteger la rama
 

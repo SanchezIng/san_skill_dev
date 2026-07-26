@@ -84,6 +84,39 @@ que quedan por rellenar.
 > igual al `name:` del frontmatter. Soltar los `.SKILL.md` sueltos en `.claude/skills/`
 > NO funciona. El instalador ya lo hace bien.
 
+### Actualizar a una versión nueva del kit
+
+```bash
+sh /ruta/al/kit/instalar.sh /ruta/al/proyecto --actualizar
+```
+
+**Nunca se pisa un archivo que hayáis tocado.** Para saberlo no se adivina: al
+instalar se registra el hash de cada archivo en `SKILLS-PORTABLE/.manifiesto`, y
+al actualizar se compara.
+
+| Estado del archivo en el destino | Qué hace |
+|---|---|
+| Igual que lo dejó el kit | lo actualiza |
+| **Modificado por vosotros** | **lo conserva** y deja la versión nueva como `<archivo>.nuevo` |
+| No existe (pieza nueva del kit) | lo trae |
+| Instalación anterior a los manifiestos | conserva todo; nada se pisa |
+
+Al terminar te lista qué actualizó y qué conservó. Para reconciliar un
+conservado: compara con `git diff --no-index <archivo> <archivo>.nuevo`, traéte
+lo que quieras y borra el `.nuevo` — en cuanto el archivo coincida con el del
+kit, vuelve a gestionarse solo.
+
+> **No hace falta acordarse del flag.** Si ya hay una instalación en el destino,
+> el instalador pasa a modo actualización aunque repitas el comando original.
+> El reflejo natural es reinstalar con el mismo comando, y que ese reflejo
+> borrara la configuración del equipo era justo el fallo que esto arregla: la
+> protección no puede depender de recordar una opción.
+
+La versión del kit está en `VERSION` (fecha) y queda sellada en el manifiesto del
+proyecto, así que siempre se puede saber con qué versión se instaló. Verifica el
+ciclo completo con `sh test_instalar.sh` (23 casos; en Windows tarda ~1 min
+porque hace varias instalaciones reales de punta a punta).
+
 ### A) Proyecto nuevo (desde una idea)
 
 1. Copia `skills/project-kickstart/` y `skills/secure-coding-guard/` a `.claude/skills/`
