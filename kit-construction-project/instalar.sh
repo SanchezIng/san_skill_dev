@@ -149,7 +149,10 @@ resumen_actualizacion() {
 # copiar_arbol <dir_origen> <dir_destino>
 copiar_arbol() {
     _base="$1"; _dst="$2"
-    (cd "$_base" && find . -type f) | sed 's|^\./||' | while IFS= read -r _f; do
+    # __pycache__ fuera: son binarios del intérprete de OTRA máquina. Ya paso una
+    # vez con las plantillas (M-05) y volvió a pasar al meter un .py dentro de la
+    # skill del kickstart, así que se excluye aquí, en el sitio que copia árboles.
+    (cd "$_base" && find . -type f -not -path '*/__pycache__/*') | sed 's|^\./||' | while IFS= read -r _f; do
         echo "$_base/$_f|$_dst/$_f"
     done > "$PARCIAL.arbol"
     while IFS='|' read -r _org _dest; do
@@ -295,5 +298,13 @@ echo "     Lista       -> proteccion de rama (el push se rechaza). README, opcio
 echo "     Error 403   -> privado en plan Free: activa la guarda de CI renombrando"
 echo "                    .github/workflows/proteccion-main.yml.desactivado sin el"
 echo "                    sufijo (el push entra, pero se denuncia). README, opcion B."
-grep -rho '{{[A-Z_]*}}' "$DESTINO/.claude/skills/equipo-"*/SKILL.md | sort -u | tr '\n' ' '
+# Todo lo INSTANCIADO, no solo las skills: `{{GESTOR_PAQUETES}}` vive en
+# scripts/audit_check.py y `{{RUTA_BACKLOG}}` en scripts/docs_check.py, y listar
+# solo las skills los dejaba fuera — se rellenaba lo que salía y el resto se
+# quedaba sin poner. El kickstart NO se mira: sus plantillas están llenas de
+# {{...}} a propósito, que son documentación, no configuración pendiente.
+# El patrón lleva dígitos ([A-Z0-9_]) porque {{CUANDO_NIVEL_2}} existe.
+grep -rho '{{[A-Z][A-Z0-9_]*}}' \
+    "$DESTINO/.claude/skills/equipo-"*/SKILL.md \
+    "$DESTINO/scripts/" "$DESTINO/security/" 2>/dev/null | sort -u | tr '\n' ' '
 echo
