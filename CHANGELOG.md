@@ -3,6 +3,48 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-26 — El kit deja de depender de que alguien se acuerde
+
+Cinco mejoras del [plan](plan-mejora.md), los tres 🔴 incluidos. El hilo común:
+donde el kit tenía una regla escrita, ahora hay mecanismo probado; y donde el
+mecanismo dependía de un dato pegado a mano, ahora se descubre solo.
+
+- **M-01 · Actualizar ya no destruye la configuración.** Reinstalar sobre un
+  proyecto configurado borraba los IDs del Project y los comandos del stack, en
+  silencio. Eso mantenía a cada proyecto congelado en la versión con la que
+  nació, porque la única vía para traerse mejoras era la que las destruía. Ahora
+  hay manifiesto de hashes: lo que tocó el equipo se conserva y la versión nueva
+  llega como `<archivo>.nuevo`. No depende de recordar un flag — reinstalar con
+  el comando de siempre también actualiza. `VERSION` sella con qué versión se
+  instaló cada proyecto.
+- **M-02 · El candado de reclamo no justifica saltarse la protección de `main`.**
+  El reclamo ya es instantáneo en GitHub (assignee + Project); el push del
+  tablero era una segunda copia de algo ya visible, y su precio era dejar la
+  rama sin proteger para siempre. Ahora el tablero viaja en el PR. Se preserva
+  el matiz real: sin GitHub Project, el tablero **es** el candado y entonces
+  `main` no puede protegerse del todo — un modo u otro, nunca los dos.
+- **M-03 · Proteger `main`, del texto al mecanismo.** El kit exigía revisión sin
+  decir cómo se configura ni que puede no estar disponible. Ahora empieza por el
+  diagnóstico (`gh api …/rulesets`) y bifurca: protección de rama si se puede, o
+  guarda de CI que denuncia los commits sin PR aprobado. Se dice explícitamente
+  que **detectar no es prevenir**. Este repo, privado en Free, usa la detectiva.
+- **M-04 · Los IDs del Project se resuelven solos.** Eran siete pegados a mano y
+  nadie comprobaba que siguieran vivos; al recrear el Project, `/que-toca`
+  asignaba el issue y no movía la tarjeta. `scripts/tablero.py` los descubre en
+  ejecución, para con diagnóstico si algo no cuadra, y tras mover **relee** el
+  estado. De paso elimina la trampa de PowerShell con GraphQL: los valores van
+  como variables, no como literales entre comillas.
+- **M-05 · Ningún listado decide sobre una lista truncada.** `gh` trae 30 por
+  defecto y dos llamadas no pedían más. La grave: se listaban todos los issues
+  para descartar los que tuvieran dueño, así que **más allá del tope parecían
+  libres por ausencia de datos** — el candado dando por libre lo que otro tenía.
+  Ahora filtra el servidor (`no:assignee`), con lo que una lista corta solo
+  puede ocultar tareas, nunca inventarlas.
+
+Cuatro suites nuevas o ampliadas, todas probando también que **muerden**:
+`test_instalar.sh` (23), `test_tablero.py` (15), `test_proteccion_main.py` (10),
+más las de docs_check (12) y el hook (9).
+
 ## 2026-07-25 — Los mecanismos del kit pasan a estar verificados
 
 Se integran los PRs #1 y #2 (`kit-construction-project`), corrigiendo antes seis

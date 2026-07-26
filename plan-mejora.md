@@ -9,6 +9,27 @@ Estado: `pendiente` · `en curso` · `hecho` · `descartado`.
 Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 [`hallazgos/2026-07-22-aplicacion-de-reglas.md`](hallazgos/2026-07-22-aplicacion-de-reglas.md)).
 
+## Dónde estamos (al 2026-07-26)
+
+| | Mejora | Estado |
+|---|---|---|
+| M-01 🔴 | Ruta de actualización del kit | hecho |
+| M-02 🔴 | Push a `main` vs proteger la rama | hecho |
+| M-03 🔴 | Protección de rama: del texto al mecanismo | hecho en el kit; activada aquí en modo detectivo |
+| M-04 🟠 | IDs del Project sin validar | hecho |
+| M-05 🟠 | Límites de paginación que mienten | hecho |
+| **M-06** 🟠 | **Smoke test de la salida del kickstart** | **PENDIENTE — siguiente** |
+| M-07 🟠 | Tablero generado en vez de a mano (hallazgo 3) | pendiente |
+| M-08 🟠 | Allowlist caducable para `audit` (hallazgo 2) | pendiente |
+| M-09 🟠 | Deriva de ramas largas (hallazgo 4) | pendiente |
+
+Los tres 🔴 están cerrados. Todo el trabajo está **commiteado en local y sin
+publicar**: `git log origin/main..HEAD`. Antes de publicar, ver la nota abierta
+de M-03 sobre la primera ejecución roja de la guarda.
+
+Para retomar: `sh kit-construction-project/test_instalar.sh` y las suites de
+`plantillas/` deben estar verdes antes de tocar nada.
+
 ---
 
 ## M-01 · 🔴 Ruta de actualización del kit (hoy reinstalar borra la config)
@@ -181,13 +202,32 @@ decir, el tope silencioso rompía el candado, que es la razón de ser de la skil
 
 ## M-06 · 🟠 La pieza más grande no tiene ninguna comprobación
 
-**Estado:** pendiente · **Origen:** auditoría 2026-07-25
+**Estado:** PENDIENTE — es el siguiente · **Origen:** auditoría 2026-07-25
 
-`project-kickstart` son ~2.900 líneas sin verificación. Es prosa y no se testea
-directa, pero **su salida sí**.
+`project-kickstart` son ~2.900 líneas (SKILL.md + 9 referencias) sin ninguna
+verificación. Es prosa y no se testea directa, pero **su salida sí**: hoy nada
+impide que el kickstart genere un kit con enlaces rotos entre documentos,
+placeholders sin resolver o archivos que promete y no crea. Y es la pieza que
+todo proyecto nuevo toca primero.
 
 - [ ] Smoke test: generar el kit para una idea de prueba y correr `docs_check`
       sobre lo generado (enlaces rotos, estructura, placeholders sin resolver).
+
+**Notas para retomarlo en frío:**
+
+- El material ya está: `docs_check.py` valida enlaces y `test_instalar.sh` ya
+  monta proyectos temporales de punta a punta — ese es el patrón a copiar.
+- Lo difícil no es correr la guarda, es **generar la salida sin una sesión
+  interactiva de Claude**. Dos caminos posibles, decidir cuál:
+  1. Un `--dry-run` del kickstart con respuestas de entrevista predefinidas
+     (ficticias pero completas), guardadas como fixture.
+  2. Comprobar la **plantilla** en vez de la generación: que todos los archivos
+     que el Paso 9 promete existan en `references/plantillas.md` y que sus
+     enlaces internos resuelvan. Más barato y ya atrapa la clase de fallo más
+     común (documento prometido que nadie generó).
+- Empezar por 2: da valor inmediato sin depender de ejecutar el kickstart.
+- Ojo a la lección de M-05 al escribirlo: no concluir "no hay enlaces rotos"
+  sobre una lista de archivos que quizá venga recortada.
 
 ## M-07 · 🟠 El tablero se mantiene a mano siendo un espejo
 
