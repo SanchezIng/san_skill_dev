@@ -29,15 +29,18 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 
-# Commits que SI pueden ir directo a main. En un proyecto sin GitHub Project el
-# tablero es el candado de reclamo y tiene que publicarse al instante (ver
-# trabajo_en_equipo.md §9). Si el proyecto usa Project, deja esto vacio: ahi el
-# candado vive en GitHub y nada necesita saltarse el PR.
-PREFIJOS_PERMITIDOS: tuple[str, ...] = ("chore(tablero):",)
+# CONFIGURACION DE ESTE REPO (catalogo de skills, sin protocolo de equipo).
+#
+# Sin excepciones: aqui no hay tablero markdown que haga de candado, asi que
+# nada justifica saltarse el PR.
+PREFIJOS_PERMITIDOS: tuple[str, ...] = ()
 
-# Exigir >=1 aprobacion humana en el PR de origen. La regla del kit es
-# "respondes por lo que tu Claude Code genero": sin revision, no se mergea.
-EXIGIR_REVISION = True
+# En falso MIENTRAS SE TRABAJE EN SOLITARIO. GitHub no deja aprobar tu propio
+# PR, asi que exigir una aprobacion con un solo dev bloquea el 100% del trabajo
+# y acabaria con la guarda desactivada — que es peor que tenerla en modo suave.
+# Lo que si se exige es que todo pase por PR: diff revisable, CI ejecutado,
+# historia limpia. PONER A True EN CUANTO ENTRE UN SEGUNDO DEV.
+EXIGIR_REVISION = False
 
 SHA_NULO = "0" * 40
 

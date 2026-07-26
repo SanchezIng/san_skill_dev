@@ -240,8 +240,20 @@ con al menos una aprobación deja el CI en rojo, nombrando el commit y el autor.
 | Requiere | repo público o GitHub Pro | nada |
 | Se puede ignorar | no | sí, si nadie mira el CI |
 
-Configurable en la cabecera del script: `PREFIJOS_PERMITIDOS` (los commits del
-tablero en modo sin Project) y `EXIGIR_REVISION`.
+Configurable en la cabecera del script:
+
+- `PREFIJOS_PERMITIDOS` — commits que sí pueden ir directos. Solo tiene sentido
+  en modo sin Project, donde el tablero es el candado. Vacíalo en modo espejado.
+- `EXIGIR_REVISION` — **ponlo en `False` mientras trabajes solo.** Es la misma
+  trampa de la opción A: GitHub no te deja aprobar tu propio PR, así que
+  exigirlo con un solo dev marca en rojo el 100% de tu trabajo y acabas
+  desactivando la guarda — peor que tenerla en modo suave. Aun en `False` sigue
+  exigiendo que **todo pase por PR**: diff revisable, CI ejecutado, historia
+  limpia. A `True` en cuanto entre el segundo dev.
+
+**Al activarla en un repo con historia, la primera ejecución saldrá roja** por
+los commits que ya entraron directos. Es correcto y es información: o los
+asumes como deuda conocida, o empiezas a contar desde ahí.
 
 Las tres salidas para un proyecto serio, en orden: hacer el repo **público**,
 pagar **GitHub Pro**, o asumir que la barrera es detectiva y no preventiva —

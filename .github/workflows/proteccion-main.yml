@@ -1,0 +1,30 @@
+# Guarda de integridad de `main` — SOLO para repos sin proteccion de rama
+# disponible (privados en plan Free). Si puedes activar la proteccion de rama,
+# activala y BORRA este workflow: rechazar un push es mejor que denunciarlo.
+#
+# Comprueba si tu repo puede:
+#   gh api repos/{owner}/{repo}/rulesets
+#   403 "Upgrade to GitHub Pro or make this repository public" -> no puedes, usa esto.
+name: Proteccion de main
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  integridad:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Se comparan commits del rango del push: hace falta historia completa.
+          fetch-depth: 0
+      - name: Tests de la propia guarda
+        run: python3 scripts/test_proteccion_main.py
+      - name: Todo commit en main llego por PR revisado
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/proteccion_main.py "${{ github.event.before }}" "${{ github.sha }}"

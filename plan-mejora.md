@@ -90,8 +90,15 @@ rama legada.
 - [x] Tabla explícita de que **detectar no es prevenir**: no se finge equivalencia.
 - [x] `trabajo_en_equipo.md` §9.2 deja de enunciar la regla a secas y apunta al
       mecanismo, con el diagnóstico previo.
-- [ ] **Decisión pendiente (tuya):** repo público / GitHub Pro / asumir barrera
-      detectiva. Hasta entonces este repo sigue sin cumplir lo que el kit predica.
+- [x] **Decidido: opción B** (barrera detectiva) — el repo sigue privado y sin
+      coste. Guarda instalada en `scripts/` + `.github/workflows/`, configurada
+      para este repo: sin excepciones (`PREFIJOS_PERMITIDOS = ()`) y
+      `EXIGIR_REVISION = False` mientras se trabaje en solitario, porque GitHub
+      no deja aprobar el PR propio. **Subir a `True` al entrar un segundo dev.**
+- [x] Verificada contra el historial real: detecta `5e4ba57` como push directo.
+- [ ] Al publicar, la primera ejecución saldrá roja por los commits ya
+      existentes que entraron directos. Decidir: asumirlos como deuda conocida
+      o empezar a contar desde ese punto.
 
 ## M-04 · 🟠 El candado depende de IDs pegados a mano, sin validación
 
