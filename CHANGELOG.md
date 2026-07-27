@@ -3,6 +3,48 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-27 — Una guarda que sale roja con ruido no se lee: se rodea
+
+`verificar_kit.py` recorría el proyecto entero excluyendo solo `.git` y
+`node_modules`, así que barría `SKILLS-PORTABLE/` y `.claude/` — el kit
+**instalado**, cuyos `{{...}}` son plantilla y cuyos enlaces apuntan al paquete.
+En un proyecto con el kit puesto (o sea, el caso normal) la primera ejecución
+salía con **37 fallos y ninguno señalando un archivo generado**.
+
+Lo caro no fue el falso positivo. En la primera ejecución real el evaluador, ante
+37 fallos que sabía ruido, **copió el proyecto a un temporal excluyendo esas
+carpetas, verificó la copia y reportó verde**. El incentivo lo fabricó el kit: una
+guarda que grita en falso en su estreno no se lee, se rodea. Y a partir de ahí
+deja de proteger nada.
+
+**La causa de fondo no era el escaneo, eran los tests.** Ninguno de los 21 casos
+incluía `SKILLS-PORTABLE/` ni `.claude/`: el verificador se probó contra un mundo
+que no existe, y por eso pasó su propia suite y falló el primer día real. Ahora
+hay un fixture del kit **instalado**, y el caso que muerde comprueba la **lista de
+archivos escaneados**, no el veredicto — así no basta con silenciar los fallos por
+otro camino. Con su recíproco: rodeado de kit instalado, un placeholder real en
+`README.md` sigue saliendo, y sale solo. Excluir no puede ser cegar.
+
+Reparto de responsabilidad, que es lo que de verdad quita el ruido: los
+placeholders que sí hay que rellenar dentro de `.claude/` (`OWNER`,
+`PROJECT_NUMBER`) los reclama el checklist de `instalar.sh`, que es quien los puso
+ahí. Este verificador responde por lo que generó el kickstart.
+
+De paso, dos cosas que estaban en la misma expresión y no se podían reescribir
+fingiendo no verlas: la exclusión se mide sobre la ruta **relativa** a la raíz (si
+mirase la absoluta, un proyecto bajo `~/.claude/...` se quedaría sin verificar y
+en silencio), y los paréntesis de la disyunción — `and` liga más fuerte que `or`,
+así que un **directorio** llamado `.gitignore` o `.env.example` entraba en la
+lista y reventaba al leerlo.
+
+Y como la herramienta sola no impide el rodeo, el Paso 10 de `SKILL.md` lo dice
+ahora con todas las letras: si sale en rojo señala algo tuyo, no lo rodees, y si
+crees que un fallo es ruido dilo en la entrega **con el fallo delante**.
+
+Cierra M-10 y M-15. 5 casos nuevos (26 en esa suite). Verificado bajando el
+código a la versión anterior: 4 de los 5 fallan contra ella; el quinto muerde
+contra el arreglo ingenuo de excluir por ruta absoluta.
+
 ## 2026-07-26 (7) — La skill hablaba el idioma del entorno equivocado
 
 Al preguntar "¿qué errores dará si Claude Code ejecuta el kit?", la respuesta

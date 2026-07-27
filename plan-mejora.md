@@ -22,12 +22,12 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-07 🟠 | Tablero generado en vez de a mano (hallazgo 3) | hecho |
 | M-08 🟠 | Allowlist caducable para `audit` (hallazgo 2) | hecho |
 | M-09 🟠 | Deriva de ramas largas (hallazgo 4) | hecho |
-| **M-10** 🔴 | **El verificador escanea el propio kit: 37 falsos positivos** | **pendiente — el primero** |
-| M-11 🔴 | El checklist post-instalación es inalcanzable al actualizar | pendiente |
+| M-10 🔴 | El verificador escanea el propio kit: 37 falsos positivos | hecho |
+| **M-11** 🔴 | **El checklist post-instalación es inalcanzable al actualizar** | **pendiente — el siguiente** |
 | M-12 🟠 | El grep de placeholders nunca puede salir limpio | pendiente |
 | M-13 🟠 | El kickstart genera instrucciones que su entorno no puede ejecutar | pendiente |
 | M-14 🟠 | Dos correcciones de texto (tabla del README, Paso 9 vs instalador) | pendiente |
-| M-15 🟢 | Precedencia de operadores en `verificar_kit.py` | pendiente |
+| M-15 🟢 | Precedencia de operadores en `verificar_kit.py` | hecho (cayó dentro de M-10) |
 
 **M-01 a M-09 están cerradas.** Los tres hallazgos que quedaban sin implementar
 (2, 3 y 4) tienen ya su mecanismo, y los cinco defectos de la auditoría del
@@ -453,7 +453,7 @@ tendría nada que vigilar, y una guarda que no puede morder no demuestra nada.
 
 ## M-10 · 🔴 El verificador escanea el propio kit: 37 falsos positivos
 
-**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bug 2 y §B)
+**Estado:** hecho (2026-07-27) · **Origen:** primera ejecución real (informe, Bug 2 y §B)
 
 `verificar_kit.py` recorre `raiz.rglob("*")` excluyendo solo `.git` y
 `node_modules`, así que **barre `SKILLS-PORTABLE/` y `.claude/skills/`** — cuyos
@@ -471,9 +471,30 @@ fallos que sabía ruido, copió el proyecto a un temporal excluyendo esas carpet
 verificó la copia y reportó verde. Una guarda que sale roja con ruido en su
 primera ejecución **no se lee: se rodea**. El incentivo lo fabricó el kit.
 
-- [ ] Excluir `SKILLS-PORTABLE/` y `.claude/` del escaneo (placeholders y enlaces).
-- [ ] Fixtures que simulen un kit **instalado**, con esas carpetas y sus `{{...}}`.
-- [ ] Un caso que muerda si alguien vuelve a ampliar el escaneo a esas rutas.
+- [x] `EXCLUIDAS` en `verificar_kit.py`: `SKILLS-PORTABLE/` y `.claude/` fuera del
+      escaneo, con el porqué escrito al lado y el reparto de responsabilidad dicho
+      —los placeholders de `.claude/` los reclama el checklist de `instalar.sh`,
+      que es quien los puso ahí—. La exclusión se mide sobre la ruta **relativa**
+      a la raíz: si mirase la absoluta, un proyecto bajo `~/.claude/...` se
+      quedaría sin verificar y en silencio.
+- [x] Fixture `INSTALADO` con `SKILLS-PORTABLE/` y `.claude/`, sus `{{...}}` y un
+      enlace al paquete que no resuelve. Contra el código anterior el caso sale
+      con 8 fallos, ninguno del proyecto.
+- [x] El caso que muerde comprueba **la lista de archivos escaneados**, no el
+      veredicto: así no basta con silenciar los fallos por otro camino.
+- [x] Y su recíproco: con el kit instalado alrededor, un placeholder real en
+      `README.md` sigue saliendo, y sale **solo**. Excluir no puede ser cegar.
+- [x] En `SKILL.md`, Paso 10: se dice que el rojo señala algo tuyo y que **no se
+      rodea** —ni copiando a un temporal ni filtrando la salida—. El rodeo fue lo
+      que pasó de verdad, y la herramienta sola no lo impide.
+
+**Verificado bajando el código a la versión anterior:** 4 de los 5 casos nuevos
+fallan contra ella (22/26). El quinto —el del proyecto dentro de una carpeta
+`.claude`— no muerde contra el original, sino contra el arreglo ingenuo de
+excluir por ruta absoluta; comprobado también, y falla (25/26).
+
+**Límite:** esto quita el ruido, no demuestra que el veredicto verde signifique un
+kit bueno. Sigue verificando el artefacto, no el criterio.
 
 ## M-11 · 🔴 El checklist post-instalación es inalcanzable al actualizar
 
@@ -514,16 +535,29 @@ sobraran: los dos errores son el mismo, listar sobre un conjunto mal elegido.
 
 **Estado:** pendiente · **Origen:** primera ejecución real (informe, E1 y Bug 5)
 
-**Corrección al informe:** el kit **no** contiene "Fidelidad al diseño §8" ni "abre
-el prototipo" — grepeado entero, cero coincidencias. Esa instrucción venía de otra
-skill o del propio Claude. El bug está mal atribuido.
+**Cómo fue la ejecución** (aclarado por quien la hizo): no se ejecutó el kit en
+seco. La sesión llevaba puestos, antes de empezar, un contexto inicial, **el diseño
+en HTML "que debe seguirse fielmente"** y los requerimientos de Barber-king; con eso
+se ejecutó el kit y después el kickstart, alimentado con esos mismos archivos.
 
-Pero el hallazgo de fondo es real y es peor: el kickstart **generó ~16 subfases que
-ordenan "ABRE el prototipo"**, algo que Claude Code no puede hacer (no hay
-renderizador; y si el diseño es un artifact *bundled*, hay que desempaquetarlo).
-O sea, el kit produce documentación **no ejecutable en su entorno de destino**, y
-nada en el repo generado explica cómo suplirlo. El próximo Claude repetirá el
-trabajo de ingeniería inversa o se lo inventará.
+**Corrección al informe:** el kit **no** contiene "Fidelidad al diseño §8" ni "abre
+el prototipo" — grepeado entero, cero coincidencias. Ese texto entró **por el
+material de entrada del usuario**, no por el kit ni por otra skill. El bug estaba
+mal atribuido, pero la atribución correcta no lo absuelve.
+
+Porque el kit no controla lo que entra —ni va a controlarlo nunca: la entrada es
+material arbitrario, un HTML, unos requerimientos— pero **sí controla lo que
+genera**. Y el kickstart tomó "sigue fielmente el diseño" y lo tradujo literalmente
+a **~16 subfases que ordenan "ABRE el prototipo"**, algo que Claude Code no puede
+hacer (no hay renderizador; y si el diseño es un artifact *bundled*, hay que
+desempaquetarlo). Copió la intención sin traducirla al entorno de destino. O sea,
+el kit produce documentación **no ejecutable donde va a ejecutarse**, y nada en el
+repo generado explica cómo suplirlo. El próximo Claude repetirá el trabajo de
+ingeniería inversa o se lo inventará.
+
+La regla que falta, entonces, no es "no digas «abre el prototipo»" — es que **toda
+instrucción heredada de la entrada se reescriba en términos ejecutables por quien
+va a ejecutarla**.
 
 - [ ] Fila en la tabla de entorno («Antes del Paso 0 → A») para "mirar un diseño".
 - [ ] Regla al generar: si una instrucción no es ejecutable en el entorno de
@@ -551,7 +585,11 @@ trabajo de ingeniería inversa o se lo inventará.
 
 ## M-15 · 🟢 Precedencia de operadores en `verificar_kit.py`
 
-**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bug 6)
+**Estado:** hecho (2026-07-27, dentro de M-10) · **Origen:** primera ejecución
+real (informe, Bug 6)
+
+Cayó aquí porque es **la misma expresión** que M-10 tenía que reescribir. Volver a
+emitirla con el bug dentro, sabiendo que estaba, no era una opción defendible.
 
 ```python
 if p.is_file()
@@ -563,7 +601,10 @@ and p.suffix in EXTENSIONES or p.name in (".gitignore", ".env.example")
 `.env.example` entraría en la lista y reventaría en `read_text()`. Latente —
 requiere un directorio con ese nombre— pero es un fallo de lectura, no de estilo.
 
-- [ ] Paréntesis alrededor de la disyunción, con un caso que cree ese directorio.
+- [x] Paréntesis alrededor de la disyunción, con un caso que crea `docs/.env.example`
+      y `docs/.gitignore` **como directorios**. Contra el código anterior el caso
+      no falla: revienta (`PermissionError` al abrir el directorio), que es
+      exactamente el modo de fallo descrito.
 
 ---
 
@@ -577,14 +618,17 @@ M-09. Se respetó ese orden.
 
 ## Qué queda del plan
 
-**M-10 a M-15**, todas nacidas de ejecutar el kit en un proyecto real — que es
-exactamente como se encontraron las nueve anteriores. Orden por daño: M-10 y M-11
-son las que rompen la primera experiencia de cualquiera que instale el kit; M-12 a
-M-14 son fricción; M-15 es latente.
+**M-11 a M-14**, todas nacidas de ejecutar el kit en un proyecto real — que es
+exactamente como se encontraron las nueve anteriores.
 
-M-10 primero, y por un motivo que no es su severidad: mientras el verificador
-salga rojo con ruido, **nadie lo va a leer**, así que ninguna de las otras se
-podrá comprobar de verdad en la siguiente ejecución real.
+M-10 se hizo primero, y por un motivo que no era su severidad: mientras el
+verificador saliera rojo con ruido, **nadie lo iba a leer**, así que ninguna de
+las otras se podría comprobar de verdad en la siguiente ejecución real. Ya está,
+y M-15 cayó con ella por vivir en la misma expresión.
+
+Sigue **M-11**: es la otra que rompe la primera experiencia de quien instala el
+kit, y la única de las que quedan que se dispara en la ruta *más probable* de uso
+—la segunda ejecución del instalador—. Después M-12 a M-14, que son fricción.
 
 Los límites conocidos de cada mejora están anotados en su sección, no aquí, para
 que quien lea una mejora vea de una vez qué cubre y qué no.
