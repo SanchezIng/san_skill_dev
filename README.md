@@ -77,7 +77,7 @@ Diez suites, **212 casos**, todas probando también que muerden:
 | `test_tablero.py` | 31 | IDs del Project, mover tarjetas, generar el tablero sin pisar el log |
 | `test_kickstart_check.py` | 32 | que la guarda del kickstart no acuse en falso ni calle |
 | `test_audit_check.py` | 26 | los cuatro modos de fallo de la allowlist, y fallar cerrado |
-| `test_instalar.sh` | 30 | instalar → configurar → actualizar ×2 → reconciliar |
+| `test_instalar.sh` | 33 | instalar → configurar → actualizar ×2 → reconciliar, y que el repaso de configuración llegue en las tres rutas |
 | `test_verificar_kit.py` | 26 | que el kit **generado** tenga lo prometido, sin placeholders sueltos — y que las plantillas del kit **instalado** no cuenten como fallos |
 | `test_deriva_ramas.py` | 18 | avisar una vez por PR, y no callar cuando no pudo mirar |
 | `test_proteccion_main.py` | 20 | commits sin PR, y que la excepción de trabajar solo caduque |

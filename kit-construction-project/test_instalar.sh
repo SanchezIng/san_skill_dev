@@ -50,6 +50,9 @@ comprobar "y los que llevan digitos en el nombre" $?
 printf '%s' "$SALIDA_INICIAL" | grep -q '{{NOMBRE_PROYECTO}}'
 comprobar "pero NO los de las plantillas del kickstart (son documentacion)" $([ $? -ne 0 ] && echo 0 || echo 1)
 
+printf '%s' "$SALIDA_INICIAL" | grep -q "FALTA (a mano"
+comprobar "la instalacion inicial dice lo que falta configurar" $?
+
 # __pycache__ son binarios del interprete de otra maquina. Ya paso con las
 # plantillas (M-05) y volvio a pasar al meter un .py dentro de la skill.
 [ -z "$(find "$PROY" -name '__pycache__' -print -quit)" ]
@@ -111,6 +114,19 @@ comprobar "nombra el archivo conservado" $?
 grep -q '^# kit=2099-01-01' "$PROY/SKILLS-PORTABLE/.manifiesto"
 comprobar "el manifiesto queda sellado con la version nueva" $?
 
+# --- 4b. El repaso de configuracion llega TAMBIEN al actualizar -------------
+# Vivia despues del `exit 0` de esta ruta, asi que se perdia entero: los
+# placeholders, OWNER/PROJECT_NUMBER, el CLAUDE-fragmento, el .gitignore y
+# proteger main. Y como el instalador FUERZA el modo actualizacion en cuanto ve
+# una instalacion previa, esta es la ruta MAS probable, no un caso raro. Era la
+# unica de las tres sin cubrir aqui, que es justo por lo que nadie lo vio.
+printf '%s' "$SALIDA" | grep -q "REPASO de configuracion"
+comprobar "AL ACTUALIZAR tambien se recuerda lo que falta configurar" $?
+printf '%s' "$SALIDA" | grep -q "Proteger main"
+comprobar "y el repaso trae los pasos enteros, no solo el titulo" $?
+printf '%s' "$SALIDA" | grep -q '{{GESTOR_PAQUETES}}'
+comprobar "y la lista de placeholders que siguen sin rellenar" $?
+
 # --- 5. Actualizar dos veces seguidas es idempotente ------------------------
 # El caso que mas duele: si al conservar un archivo se registrara el hash del
 # EQUIPO, la segunda pasada lo veria "igual a lo registrado", lo daria por
@@ -146,6 +162,10 @@ grep -q "MiEquipoReflejo" "$SKILL3"
 comprobar "REINSTALAR con el mismo comando tampoco pisa la config" $?
 printf '%s' "$SALIDA4" | grep -q "se ACTUALIZA en vez de reinstalar"
 comprobar "y avisa de que ha cambiado a modo actualizacion" $?
+# Este es el camino exacto que documenta el README (fabrica y luego --protocolo,
+# dos lineas seguidas) y el que se perdia el repaso sin que nadie lo pidiera.
+printf '%s' "$SALIDA4" | grep -q "REPASO de configuracion"
+comprobar "repetir el comando de instalacion tampoco pierde el repaso" $?
 
 # --- 5d. --protocolo amplia una instalacion de fabrica ----------------------
 PROY4="$TMP/proyecto-fabrica"

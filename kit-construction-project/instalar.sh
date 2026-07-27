@@ -146,6 +146,52 @@ resumen_actualizacion() {
     return 0
 }
 
+# El repaso de lo que queda por configurar a mano.
+#
+# Vive en una funcion porque hace falta en LOS DOS caminos, y durante meses solo
+# se imprimio en el primero: el bloque estaba escrito DESPUES del `exit 0` de la
+# ruta de actualizacion. Y como el instalador FUERZA el modo actualizacion en
+# cuanto detecta una instalacion previa, la ruta que se lo perdia era la mas
+# probable de todas: la segunda ejecucion. En la primera ejecucion real del kit
+# la lista hubo que reconstruirla a mano leyendo el codigo.
+#
+# El arreglo no es moverlo por encima del exit: es que ya no haya un exit del
+# que depender. Se llama una sola vez, al final, en los dos caminos.
+pendiente_de_configurar() {
+    echo
+    if [ "$ACTUALIZAR" = 1 ]; then
+        # Al actualizar no se sabe que hicisteis ya, y decir "FALTA" sobre algo
+        # hecho es la clase de ruido que se aprende a saltar. Se enmarca como
+        # repaso, y la lista de placeholders de abajo es la que si sabe.
+        echo "REPASO de configuracion (lo que ya hicisteis, ignoradlo):"
+    else
+        echo "FALTA (a mano, o pideselo a Claude):"
+    fi
+    echo "  1. Rellenar los {{PLACEHOLDERS}} de las 3 skills — tabla en el README del kit."
+    echo "  2. Poner OWNER y PROJECT_NUMBER en scripts/tablero.py y comprobarlo:"
+    echo "       python3 scripts/tablero.py --comprobar"
+    echo "     (los IDs de GraphQL ya NO se pegan a mano: se resuelven solos)"
+    echo "  3. Pegar plantillas/CLAUDE-fragmento.md en el CLAUDE.md del proyecto."
+    echo "  4. Anadir .claude/settings.local.json al .gitignore y COMITEAR todo lo demas."
+    echo "  5. Proteger main. Averigua primero cual te toca:"
+    echo "       gh api repos/{owner}/{repo}/rulesets"
+    echo "     Lista       -> proteccion de rama (el push se rechaza). README, opcion A."
+    echo "     Error 403   -> privado en plan Free: activa la guarda de CI renombrando"
+    echo "                    .github/workflows/proteccion-main.yml.desactivado sin el"
+    echo "                    sufijo (el push entra, pero se denuncia). README, opcion B."
+    # Todo lo INSTANCIADO, no solo las skills: `{{GESTOR_PAQUETES}}` vive en
+    # scripts/audit_check.py y `{{RUTA_BACKLOG}}` en scripts/docs_check.py, y listar
+    # solo las skills los dejaba fuera — se rellenaba lo que salía y el resto se
+    # quedaba sin poner. El kickstart NO se mira: sus plantillas están llenas de
+    # {{...}} a propósito, que son documentación, no configuración pendiente.
+    # El patrón lleva dígitos ([A-Z0-9_]) porque {{CUANDO_NIVEL_2}} existe.
+    grep -rho '{{[A-Z][A-Z0-9_]*}}' \
+        "$DESTINO/.claude/skills/equipo-"*/SKILL.md \
+        "$DESTINO/scripts/" "$DESTINO/security/" 2>/dev/null | sort -u | tr '\n' ' '
+    echo
+    return 0
+}
+
 # copiar_arbol <dir_origen> <dir_destino>
 copiar_arbol() {
     _base="$1"; _dst="$2"
@@ -281,30 +327,6 @@ rm -f "$PARCIAL"
 
 if [ "$ACTUALIZAR" = 1 ]; then
     resumen_actualizacion
-    exit 0
 fi
 
-echo
-echo "FALTA (a mano, o pideselo a Claude):"
-echo "  1. Rellenar los {{PLACEHOLDERS}} de las 3 skills — tabla en el README del kit."
-echo "  2. Poner OWNER y PROJECT_NUMBER en scripts/tablero.py y comprobarlo:"
-echo "       python3 scripts/tablero.py --comprobar"
-echo "     (los IDs de GraphQL ya NO se pegan a mano: se resuelven solos)"
-echo "  3. Pegar plantillas/CLAUDE-fragmento.md en el CLAUDE.md del proyecto."
-echo "  4. Anadir .claude/settings.local.json al .gitignore y COMITEAR todo lo demas."
-echo "  5. Proteger main. Averigua primero cual te toca:"
-echo "       gh api repos/{owner}/{repo}/rulesets"
-echo "     Lista       -> proteccion de rama (el push se rechaza). README, opcion A."
-echo "     Error 403   -> privado en plan Free: activa la guarda de CI renombrando"
-echo "                    .github/workflows/proteccion-main.yml.desactivado sin el"
-echo "                    sufijo (el push entra, pero se denuncia). README, opcion B."
-# Todo lo INSTANCIADO, no solo las skills: `{{GESTOR_PAQUETES}}` vive en
-# scripts/audit_check.py y `{{RUTA_BACKLOG}}` en scripts/docs_check.py, y listar
-# solo las skills los dejaba fuera — se rellenaba lo que salía y el resto se
-# quedaba sin poner. El kickstart NO se mira: sus plantillas están llenas de
-# {{...}} a propósito, que son documentación, no configuración pendiente.
-# El patrón lleva dígitos ([A-Z0-9_]) porque {{CUANDO_NIVEL_2}} existe.
-grep -rho '{{[A-Z][A-Z0-9_]*}}' \
-    "$DESTINO/.claude/skills/equipo-"*/SKILL.md \
-    "$DESTINO/scripts/" "$DESTINO/security/" 2>/dev/null | sort -u | tr '\n' ' '
-echo
+pendiente_de_configurar
