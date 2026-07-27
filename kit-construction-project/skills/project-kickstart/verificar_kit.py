@@ -24,6 +24,10 @@ decidió, no lo que este script suponga):
   5. El propio `.kickstart-state.json` es JSON válido y declara lo que dice
      declarar — es la fuente de las otras cuatro comprobaciones.
 
+Qué NO mira, y a propósito: `SKILLS-PORTABLE/` y `.claude/`. Eso es el kit
+INSTALADO —el paquete y el protocolo— no el kit GENERADO; sus placeholders son
+plantilla. Ver `EXCLUIDAS`.
+
 Límite conocido, dicho en voz alta: esto verifica el ARTEFACTO, no el criterio.
 Un kit puede pasar estas cinco reglas y tener una guía de desarrollo mediocre.
 Lo que impide es la clase de fallo que se cuela en silencio y aparece semanas
@@ -85,6 +89,23 @@ NOMBRE_PLACEHOLDER = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 EXTENSIONES = (".md", ".json", ".yml", ".yaml", ".example", ".gitignore")
 
+# Carpetas que NO son el kit generado, aunque vivan dentro del proyecto.
+#
+# `SKILLS-PORTABLE/` es la copia del paquete que deja `instalar.sh` (de ahí lee
+# el kickstart sus plantillas) y `.claude/` son las skills y hooks del
+# protocolo. Sus `{{...}}` son documentación de plantilla y sus enlaces apuntan
+# al paquete, no al proyecto. Escanearlas hacía que en un proyecto con el kit
+# instalado —o sea, el caso normal— la primera ejecución saliera roja con 37
+# fallos y ninguno señalando un archivo generado. Y una guarda que sale roja con
+# ruido no se lee: se rodea. Eso fue exactamente lo que pasó en la primera
+# ejecución real.
+#
+# Los placeholders que SÍ hay que rellenar dentro de `.claude/` (`OWNER`,
+# `PROJECT_NUMBER` de las skills de equipo) los reclama el checklist de
+# `instalar.sh`, que es quien los puso ahí. Este verificador responde por lo que
+# generó el kickstart; repartir esa responsabilidad es lo que evita el ruido.
+EXCLUIDAS = frozenset({".git", "node_modules", "SKILLS-PORTABLE", ".claude"})
+
 
 class KitIlegible(Exception):
     """No se puede emitir veredicto. NO es "el kit está bien"."""
@@ -121,12 +142,18 @@ def leer_estado(raiz: Path) -> dict:
 
 
 def archivos_del_kit(raiz: Path) -> list[Path]:
-    salida = [
+    # Los paréntesis de la disyunción no son estilo: `and` liga más fuerte que
+    # `or`, así que sin ellos un DIRECTORIO llamado `.gitignore` o
+    # `.env.example` entraba en la lista y reventaba al leerlo.
+    # Y la exclusión se mide sobre la ruta RELATIVA a la raíz: si el proyecto
+    # vive dentro de una carpeta llamada `.claude`, lo que hay que verificar es
+    # el proyecto, no callarse entero.
+    return sorted(
         p for p in raiz.rglob("*")
         if p.is_file()
-        and p.suffix in EXTENSIONES or p.name in (".gitignore", ".env.example")
-    ]
-    return sorted(p for p in salida if ".git" not in p.parts and "node_modules" not in p.parts)
+        and (p.suffix in EXTENSIONES or p.name in (".gitignore", ".env.example"))
+        and EXCLUIDAS.isdisjoint(p.relative_to(raiz).parts)
+    )
 
 
 def obligatorios_segun(estado: dict) -> list[str]:

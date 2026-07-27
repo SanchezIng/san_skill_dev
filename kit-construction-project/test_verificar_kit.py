@@ -80,6 +80,26 @@ DE_EQUIPO = {
     ".github/PULL_REQUEST_TEMPLATE.md": "## Qué hace\n\n## Checklist\n",
 }
 
+# El mundo real: lo que `instalar.sh` deja en el proyecto ANTES de que el
+# kickstart genere nada. Los 21 casos originales no lo incluian, y por eso el
+# verificador paso su propia suite y salio con 37 falsos positivos la primera
+# vez que se ejecuto sobre un proyecto de verdad. Todos estos `{{...}}` y estos
+# enlaces son de PLANTILLA: apuntan al paquete, no al proyecto generado.
+INSTALADO = {
+    "SKILLS-PORTABLE/README.md":
+        "# Kit\n\nRellena {{NOMBRE_PROYECTO}} y {{OWNER}}.\n\n"
+        "Ver [el fragmento](plantillas/CLAUDE-fragmento.md).\n",
+    "SKILLS-PORTABLE/plantillas/CLAUDE-fragmento.md":
+        "## Stack\n{{STACK}}\n\n## Comandos\n- Tests: {{CMD_TEST}}\n",
+    "SKILLS-PORTABLE/skills/project-kickstart/SKILL.md":
+        "# Kickstart\n\nPaso 9: escribe {{CMD_TEST}} en el README.\n"
+        "Ver [referencias](references/estructura.md).\n",
+    ".claude/skills/equipo-que-toca/SKILL.md":
+        "# Que toca\n\n`gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}}`\n",
+    ".claude/settings.json":
+        '{"hooks": {"SessionStart": [{"command": ".claude/hooks/arranque.sh"}]}}\n',
+}
+
 
 def construir(tmp: Path, extra=None, estado=None, quitar=()) -> Path:
     archivos = dict(BASE)
@@ -297,6 +317,69 @@ def _():
         # Con solo el estado presente, o para por vacio o denuncia los que faltan;
         # lo que NO puede es devolver lista vacia.
         assert fallos is None or fallos, "no puede dar el kit por bueno"
+
+
+# --- 6. El kit INSTALADO no es el kit generado ------------------------------
+
+@caso("proyecto con el kit YA INSTALADO: sus plantillas no son fallos del proyecto")
+def _():
+    # El caso normal, y el que la suite no cubria: SKILLS-PORTABLE/ y .claude/
+    # traen placeholders y enlaces al paquete. Acusarlos es ruido, y el ruido
+    # hace que la guarda se rodee en vez de leerse.
+    fallos, _s = revisar(extra=INSTALADO)
+    assert fallos == [], fallos
+
+
+@caso("y con el kit instalado sigue MORDIENDO lo del proyecto")
+def _():
+    # Excluir no puede convertirse en cegar: el fallo de verdad, en medio del
+    # kit instalado, tiene que salir igual y ser el unico.
+    roto = dict(INSTALADO)
+    roto["README.md"] = "# Demo\n\nCorrer: `{{CMD_TEST}}`\n"
+    fallos, _s = revisar(extra=roto)
+    assert len(fallos) == 1, fallos
+    assert "README.md:3" in fallos[0], fallos
+
+
+@caso("nadie vuelve a meter SKILLS-PORTABLE/ ni .claude/ en el escaneo")
+def _():
+    # Este es el caso que muerde si alguien "amplia" el escaneo otra vez:
+    # comprueba la LISTA de archivos, no solo el veredicto, para que no baste
+    # con silenciar los fallos por otro camino.
+    mod = cargar()
+    with tempfile.TemporaryDirectory() as tmp:
+        raiz = construir(Path(tmp), INSTALADO, ESTADO_BASE)
+        escaneados = [p.relative_to(raiz).as_posix() for p in mod.archivos_del_kit(raiz)]
+    intrusos = [r for r in escaneados
+                if r.startswith(("SKILLS-PORTABLE/", ".claude/"))]
+    assert not intrusos, f"vuelven a escanearse plantillas del paquete: {intrusos}"
+    assert "README.md" in escaneados, "y sin dejar de mirar el proyecto"
+
+
+@caso("proyecto que vive DENTRO de una carpeta .claude: se verifica igual")
+def _():
+    # La exclusion se mide desde la raiz. Si mirara la ruta absoluta, un
+    # proyecto bajo ~/.claude/... se quedaria sin verificar y en silencio, que
+    # es la peor forma de pasar.
+    mod = cargar()
+    with tempfile.TemporaryDirectory() as tmp:
+        raiz = construir(Path(tmp) / ".claude" / "proyectos" / "demo",
+                         None, ESTADO_BASE)
+        assert mod.archivos_del_kit(raiz), "no puede quedarse sin archivos que mirar"
+        assert mod.revisar(raiz) == [], "y el kit sano sigue pasando"
+
+
+@caso("un DIRECTORIO llamado .env.example no entra en la lista")
+def _():
+    # `and` liga mas fuerte que `or`: sin parentesis, el nombre bastaba y un
+    # directorio acababa en read_text(). Latente, pero es un fallo de lectura.
+    mod = cargar()
+    with tempfile.TemporaryDirectory() as tmp:
+        raiz = construir(Path(tmp), None, ESTADO_BASE)
+        (raiz / "docs" / ".env.example").mkdir(parents=True, exist_ok=True)
+        (raiz / "docs" / ".gitignore").mkdir(parents=True, exist_ok=True)
+        fallos = mod.revisar(raiz)
+    assert fallos == [], fallos
 
 
 # --- Salida de la herramienta -----------------------------------------------

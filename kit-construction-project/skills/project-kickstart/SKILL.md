@@ -365,6 +365,8 @@ python3 <paquete>/skills/project-kickstart/verificar_kit.py <directorio-generado
 
 Comprueba contra `.kickstart-state.json` que estén los archivos que esta entrevista obligaba a generar, que no quede ningún `{{PLACEHOLDER}}` sin rellenar, que los enlaces entre documentos resuelvan y que CLAUDE.md traiga sus secciones (mapa, archivos críticos, indicador de cierre). Si sale en rojo, **arregla y repite**: un documento prometido y no escrito aparece semanas después, cuando alguien lo busca porque el índice lo cita, y para entonces el proyecto ya se apoyó en él.
 
+Mira solo lo que ha generado esta sesión: `SKILLS-PORTABLE/` y `.claude/` quedan fuera del escaneo porque son el kit **instalado**, y sus `{{...}}` son plantilla. Así que si sale en rojo, señala algo tuyo. **No lo rodees** —ni copiando el proyecto a un temporal, ni filtrando la salida— y no lo entregues como verde: si crees que un fallo es ruido, dilo en la entrega con el fallo delante.
+
 Si el script no está (paquete incompleto), dilo y haz esas cuatro comprobaciones a mano — no entregues sin comprobar.
 
 Entrega TODOS los archivos generados: con `present_files` en claude.ai, o **escribiéndolos en el repo** si estás en Claude Code. En el mensaje final incluye:
