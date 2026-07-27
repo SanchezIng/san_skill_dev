@@ -23,8 +23,8 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-08 🟠 | Allowlist caducable para `audit` (hallazgo 2) | hecho |
 | M-09 🟠 | Deriva de ramas largas (hallazgo 4) | hecho |
 | M-10 🔴 | El verificador escanea el propio kit: 37 falsos positivos | hecho |
-| **M-11** 🔴 | **El checklist post-instalación es inalcanzable al actualizar** | **pendiente — el siguiente** |
-| M-12 🟠 | El grep de placeholders nunca puede salir limpio | pendiente |
+| M-11 🔴 | El checklist post-instalación es inalcanzable al actualizar | hecho |
+| **M-12** 🟠 | **El grep de placeholders nunca puede salir limpio** | **pendiente — el siguiente** |
 | M-13 🟠 | El kickstart genera instrucciones que su entorno no puede ejecutar | pendiente |
 | M-14 🟠 | Dos correcciones de texto (tabla del README, Paso 9 vs instalador) | pendiente |
 | M-15 🟢 | Precedencia de operadores en `verificar_kit.py` | hecho (cayó dentro de M-10) |
@@ -498,7 +498,7 @@ kit bueno. Sigue verificando el artefacto, no el criterio.
 
 ## M-11 · 🔴 El checklist post-instalación es inalcanzable al actualizar
 
-**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bug 1 y E2)
+**Estado:** hecho (2026-07-27) · **Origen:** primera ejecución real (informe, Bug 1 y E2)
 
 `instalar.sh:283-284` hace `resumen_actualizacion; exit 0`. El bloque
 `FALTA (a mano, o pideselo a Claude)` y el grep de placeholders viven en las
@@ -511,9 +511,31 @@ El README lo agrava: documenta fábrica y `--protocolo` como dos líneas seguida
 que es justo la secuencia que dispara el fallo. En la prueba real pasó exactamente
 eso y hubo que derivar la lista a mano.
 
-- [ ] Mover el bloque antes del `exit 0`, o llamarlo desde `resumen_actualizacion()`.
-- [ ] Caso en `test_instalar.sh` que exija el checklist **en la ruta de
-      actualización**, que hoy es la única sin cubrir.
+- [x] **Ni una cosa ni la otra: se quitó el `exit 0`.** El bloque es ahora
+      `pendiente_de_configurar()` y se llama una sola vez al final, en los dos
+      caminos; la actualización solo añade su resumen antes. Mover el bloque por
+      encima del `exit` habría arreglado este caso dejando en pie la estructura
+      que lo causó — dos salidas, una de ellas prematura. Ahora no hay un `exit`
+      del que depender.
+- [x] Al actualizar el título cambia a «REPASO de configuración (lo que ya
+      hicisteis, ignoradlo)». Decir "FALTA" sobre algo ya hecho es la clase de
+      ruido que enseña a saltarse el bloque entero, que es la lección de M-10.
+- [x] 4 casos en `test_instalar.sh`: el repaso en la ruta de actualización
+      (título, pasos completos y lista de placeholders) y en la de repetir el
+      comando de instalación —el camino que documenta el README—. Más uno que
+      fija el «FALTA» de la instalación inicial, que no estaba cubierto.
+- [x] README del kit: dice que el repaso sale **siempre**, incluida la segunda
+      ejecución, y nombra el fallo que hubo ahí. Y el recuento de casos de
+      `test_instalar.sh` pasa de 23 —que llevaba tiempo desfasado— a 33.
+
+**Verificado bajando `instalar.sh` a la versión anterior:** los 4 casos nuevos de
+la ruta de actualización fallan (`4 comprobacion(es) fallida(s)`). Con el arreglo,
+33/33.
+
+**Límite:** el repaso no sabe qué habéis configurado ya, así que en la
+actualización se lee entero aunque solo falte un punto. Lo que sí sabe es la lista
+de placeholders — y esa hoy miente por exceso, que es justo **M-12**. Hasta que se
+arregle, no se puede usar como semáforo de "no queda nada".
 
 ## M-12 · 🟠 El grep de placeholders nunca puede salir limpio
 
@@ -618,17 +640,19 @@ M-09. Se respetó ese orden.
 
 ## Qué queda del plan
 
-**M-11 a M-14**, todas nacidas de ejecutar el kit en un proyecto real — que es
+**M-12 a M-14**, todas nacidas de ejecutar el kit en un proyecto real — que es
 exactamente como se encontraron las nueve anteriores.
 
-M-10 se hizo primero, y por un motivo que no era su severidad: mientras el
-verificador saliera rojo con ruido, **nadie lo iba a leer**, así que ninguna de
-las otras se podría comprobar de verdad en la siguiente ejecución real. Ya está,
-y M-15 cayó con ella por vivir en la misma expresión.
+Las dos 🔴 ya están. M-10 fue primero por un motivo que no era su severidad:
+mientras el verificador saliera rojo con ruido, **nadie lo iba a leer**, así que
+ninguna de las otras se podría comprobar de verdad en la siguiente ejecución real.
+M-15 cayó con ella por vivir en la misma expresión. Después M-11, que era la que
+se disparaba en la ruta *más probable* de uso — la segunda ejecución del
+instalador.
 
-Sigue **M-11**: es la otra que rompe la primera experiencia de quien instala el
-kit, y la única de las que quedan que se dispara en la ruta *más probable* de uso
-—la segunda ejecución del instalador—. Después M-12 a M-14, que son fricción.
+Sigue **M-12**, y ya no es solo fricción: el repaso de M-11 se apoya en esa lista
+de placeholders, y mientras la lista mienta por exceso el repaso no puede decir
+"no queda nada". Después M-13 y M-14.
 
 Los límites conocidos de cada mejora están anotados en su sección, no aquí, para
 que quien lea una mejora vea de una vez qué cubre y qué no.

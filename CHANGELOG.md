@@ -3,6 +3,47 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-27 (2) — El checklist vivía después del `exit 0`
+
+`instalar.sh` terminaba la ruta de actualización con `resumen_actualizacion;
+exit 0`, y el bloque **FALTA (a mano, o pídeselo a Claude)** —los placeholders,
+`OWNER`/`PROJECT_NUMBER`, pegar el `CLAUDE-fragmento.md`, el `.gitignore` y
+proteger `main`— estaba escrito veinte líneas más abajo. Es decir, después del
+`exit`.
+
+Lo que lo vuelve grave no es el descuido, es **qué ruta se lo perdía**. El
+instalador *fuerza* el modo actualización en cuanto detecta una instalación
+previa —a propósito, para que repetir el comando no destruya la configuración del
+equipo—, así que cualquier **segunda ejecución** se quedaba sin el checklist
+entero. Y el README documenta fábrica y `--protocolo` como dos líneas seguidas,
+que es exactamente esa secuencia. En la primera ejecución real hubo que
+reconstruir la lista a mano leyendo el código.
+
+**El arreglo no fue mover el bloque por encima del `exit`.** Eso arreglaba este
+caso dejando en pie lo que lo causó: dos salidas, una de ellas prematura, y nada
+que impidiera que la siguiente línea útil volviera a caer al lado equivocado.
+Ahora el bloque es `pendiente_de_configurar()`, se llama **una sola vez al final**
+y la actualización solo añade su resumen antes. No queda un `exit` del que
+depender.
+
+Al actualizar, el título cambia a «REPASO de configuración (lo que ya hicisteis,
+ignoradlo)». Decir "FALTA" sobre algo hecho es la misma clase de ruido que la
+entrada anterior de este changelog: enseña a saltarse el bloque entero.
+
+Y otra vez la causa de fondo estaba en los tests. `test_instalar.sh` cubría las
+tres rutas para la *supervivencia de la configuración*, pero ninguna comprobaba
+que el checklist llegara: la única sin cubrir era justo la que fallaba. Ahora hay
+4 casos —repaso al actualizar (título, pasos y placeholders) y al repetir el
+comando de instalación— más uno que fija el «FALTA» de la instalación inicial.
+**33 casos** (el README decía 23 desde hacía tiempo).
+
+Cierra M-11. Verificado bajando `instalar.sh` a la versión anterior: los 4 casos
+nuevos fallan.
+
+**Límite dicho en voz alta:** el repaso no sabe qué configurasteis ya. Lo único
+que podría saberlo es la lista de placeholders, y hoy miente por exceso — eso es
+M-12, y hasta entonces la lista no vale como semáforo de "no queda nada".
+
 ## 2026-07-27 — Una guarda que sale roja con ruido no se lee: se rodea
 
 `verificar_kit.py` recorría el proyecto entero excluyendo solo `.git` y

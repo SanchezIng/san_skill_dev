@@ -76,8 +76,11 @@ sh instalar.sh /ruta/al/proyecto --protocolo  # además, las 3 skills del protoc
 ```
 
 Copia todo a `.claude/skills/` del destino y deja una copia del kit ahí (el kickstart
-busca sus plantillas al lado). Con `--protocolo` te lista al final los placeholders
-que quedan por rellenar.
+busca sus plantillas al lado). Al terminar te dice **siempre** qué queda por
+configurar a mano y qué placeholders siguen sin rellenar — también si el destino ya
+tenía el kit, que es cuando el instalador pasa solo a modo actualización. Durante un
+tiempo ese repaso se perdía justo ahí, y esas dos líneas seguidas eran la forma más
+rápida de perderlo.
 
 > **Regla que evita el error más común:** una skill vive en
 > `.claude/skills/<nombre>/SKILL.md` — carpeta por skill, y el nombre de la carpeta
@@ -114,7 +117,7 @@ kit, vuelve a gestionarse solo.
 
 La versión del kit está en `VERSION` (fecha) y queda sellada en el manifiesto del
 proyecto, así que siempre se puede saber con qué versión se instaló. Verifica el
-ciclo completo con `sh test_instalar.sh` (23 casos; en Windows tarda ~1 min
+ciclo completo con `sh test_instalar.sh` (33 casos; en Windows tarda ~2 min
 porque hace varias instalaciones reales de punta a punta).
 
 ### A) Proyecto nuevo (desde una idea)
