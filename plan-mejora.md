@@ -22,10 +22,23 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-07 🟠 | Tablero generado en vez de a mano (hallazgo 3) | hecho |
 | M-08 🟠 | Allowlist caducable para `audit` (hallazgo 2) | hecho |
 | M-09 🟠 | Deriva de ramas largas (hallazgo 4) | hecho |
+| **M-10** 🔴 | **El verificador escanea el propio kit: 37 falsos positivos** | **pendiente — el primero** |
+| M-11 🔴 | El checklist post-instalación es inalcanzable al actualizar | pendiente |
+| M-12 🟠 | El grep de placeholders nunca puede salir limpio | pendiente |
+| M-13 🟠 | El kickstart genera instrucciones que su entorno no puede ejecutar | pendiente |
+| M-14 🟠 | Dos correcciones de texto (tabla del README, Paso 9 vs instalador) | pendiente |
+| M-15 🟢 | Precedencia de operadores en `verificar_kit.py` | pendiente |
 
-**Las nueve están cerradas.** Los tres hallazgos que quedaban sin implementar
+**M-01 a M-09 están cerradas.** Los tres hallazgos que quedaban sin implementar
 (2, 3 y 4) tienen ya su mecanismo, y los cinco defectos de la auditoría del
 2026-07-25 están corregidos.
+
+**M-10 a M-15 son nuevas**, y salieron de la **primera ejecución real** del kit
+sobre un proyecto de verdad (BarberCrow, 2026-07-26):
+[`INFORME-PRIMERA-EJECUCION-KIT.md`](Projects-Aplicados-kit/Barber-king/INFORME-PRIMERA-EJECUCION-KIT.md).
+Confirma el patrón de toda esta jornada: **lo que está testeado aguanta; lo que
+nunca se había ejecutado tenía bugs**. Las tres graves son de la propia jornada —
+M-12 se introdujo el mismo día que se creyó arreglar el problema contrario.
 
 Todo el trabajo está **commiteado en local y sin publicar**:
 `git log origin/main..HEAD`. Quedan dos cosas por decidir antes de publicar:
@@ -438,6 +451,122 @@ tendría nada que vigilar, y una guarda que no puede morder no demuestra nada.
 
 ---
 
+## M-10 · 🔴 El verificador escanea el propio kit: 37 falsos positivos
+
+**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bug 2 y §B)
+
+`verificar_kit.py` recorre `raiz.rglob("*")` excluyendo solo `.git` y
+`node_modules`, así que **barre `SKILLS-PORTABLE/` y `.claude/skills/`** — cuyos
+`{{...}}` son documentación de plantillas, no configuración pendiente. En un
+proyecto con el kit instalado (o sea, el caso normal) sale **rojo con 37 fallos y
+ninguno señala un archivo generado**.
+
+**La causa de fondo no es el `rglob`, son los tests.** Ninguno de los 21 fixtures
+de `test_verificar_kit.py` incluye `SKILLS-PORTABLE/` ni `.claude/`: el
+verificador se probó contra un mundo que no existe. Arreglar el escaneo sin
+arreglar los fixtures deja la puerta abierta a la siguiente variante.
+
+**Y lo peor no es el falso positivo, es lo que provocó.** El evaluador, ante 37
+fallos que sabía ruido, copió el proyecto a un temporal excluyendo esas carpetas,
+verificó la copia y reportó verde. Una guarda que sale roja con ruido en su
+primera ejecución **no se lee: se rodea**. El incentivo lo fabricó el kit.
+
+- [ ] Excluir `SKILLS-PORTABLE/` y `.claude/` del escaneo (placeholders y enlaces).
+- [ ] Fixtures que simulen un kit **instalado**, con esas carpetas y sus `{{...}}`.
+- [ ] Un caso que muerda si alguien vuelve a ampliar el escaneo a esas rutas.
+
+## M-11 · 🔴 El checklist post-instalación es inalcanzable al actualizar
+
+**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bug 1 y E2)
+
+`instalar.sh:283-284` hace `resumen_actualizacion; exit 0`. El bloque
+`FALTA (a mano, o pideselo a Claude)` y el grep de placeholders viven en las
+líneas 288-307, **después de ese `exit`**. Y como el instalador **fuerza** el modo
+actualización en cuanto detecta una instalación previa, cualquier segunda
+ejecución pierde el checklist entero: los placeholders, `OWNER`/`PROJECT_NUMBER`,
+pegar `CLAUDE-fragmento.md`, el `.gitignore` y proteger `main`.
+
+El README lo agrava: documenta fábrica y `--protocolo` como dos líneas seguidas,
+que es justo la secuencia que dispara el fallo. En la prueba real pasó exactamente
+eso y hubo que derivar la lista a mano.
+
+- [ ] Mover el bloque antes del `exit 0`, o llamarlo desde `resumen_actualizacion()`.
+- [ ] Caso en `test_instalar.sh` que exija el checklist **en la ruta de
+      actualización**, que hoy es la única sin cubrir.
+
+## M-12 · 🟠 El grep de placeholders nunca puede salir limpio
+
+**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bug 3)
+
+El grep que imprime el instalador y documenta el README incluye `scripts/`, donde
+viajan `test_tablero.py`, `test_audit_check.py` y `test_docs_check.py` **con
+placeholders como fixture deliberado** (`cargar(owner="{{OWNER}}")`). Resultado: un
+"queda trabajo pendiente" permanente que nunca se puede satisfacer.
+
+Se introdujo el **mismo 2026-07-26**, al ampliar el grep a `scripts/` para que no
+se dejara fuera `{{GESTOR_PAQUETES}}`. Se arregló que faltaran y se creó que
+sobraran: los dos errores son el mismo, listar sobre un conjunto mal elegido.
+
+- [ ] Excluir `test_*` del grep, en `instalar.sh` y en el README.
+- [ ] Caso que compruebe que un proyecto **ya configurado** imprime la lista vacía.
+
+## M-13 · 🟠 El kickstart genera instrucciones que su entorno no puede ejecutar
+
+**Estado:** pendiente · **Origen:** primera ejecución real (informe, E1 y Bug 5)
+
+**Corrección al informe:** el kit **no** contiene "Fidelidad al diseño §8" ni "abre
+el prototipo" — grepeado entero, cero coincidencias. Esa instrucción venía de otra
+skill o del propio Claude. El bug está mal atribuido.
+
+Pero el hallazgo de fondo es real y es peor: el kickstart **generó ~16 subfases que
+ordenan "ABRE el prototipo"**, algo que Claude Code no puede hacer (no hay
+renderizador; y si el diseño es un artifact *bundled*, hay que desempaquetarlo).
+O sea, el kit produce documentación **no ejecutable en su entorno de destino**, y
+nada en el repo generado explica cómo suplirlo. El próximo Claude repetirá el
+trabajo de ingeniería inversa o se lo inventará.
+
+- [ ] Fila en la tabla de entorno («Antes del Paso 0 → A») para "mirar un diseño".
+- [ ] Regla al generar: si una instrucción no es ejecutable en el entorno de
+      destino, se escribe **el procedimiento que sí lo es** — y si hizo falta una
+      herramienta (un desempaquetador), se deja en el repo, no en la sesión.
+
+## M-14 · 🟠 Dos correcciones de texto que costaron trabajo real
+
+**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bugs 4 y 7)
+
+- La tabla del README sitúa `OWNER` y `PROJECT_NUMBER` solo "en
+  `scripts/tablero.py`". También viven en `que-toca.SKILL.md:20,51`. Quien siga la
+  tabla al pie de la letra deja la skill del candado con un `gh project item-list`
+  inválido.
+- El Paso 9 pide generar los ítems 21 y 25 (`arranque.sh` + `settings.json`, y la
+  copia en `SKILLS-PORTABLE/`) que **`instalar.sh` ya dejó**. En la prueba real el
+  evaluador dudó y decidió no regenerarlos, con buen criterio: habría cambiado los
+  hashes del manifiesto y la siguiente actualización habría creído que los tocó el
+  equipo. Ese razonamiento debería estar en la skill, no depender de que lo deduzca
+  quien la ejecuta.
+
+- [ ] Completar la fila de la tabla.
+- [ ] Nota en el Paso 9: "si viniste por `instalar.sh`, estos ya existen; no los
+      regeneres — pisarías los hashes del manifiesto".
+
+## M-15 · 🟢 Precedencia de operadores en `verificar_kit.py`
+
+**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bug 6)
+
+```python
+if p.is_file()
+and p.suffix in EXTENSIONES or p.name in (".gitignore", ".env.example")
+```
+
+`and` liga más fuerte que `or`, así que evalúa
+`(is_file and suffix) or (name in ...)`: un **directorio** llamado `.gitignore` o
+`.env.example` entraría en la lista y reventaría en `read_text()`. Latente —
+requiere un directorio con ese nombre— pero es un fallo de lectura, no de estilo.
+
+- [ ] Paréntesis alrededor de la disyunción, con un caso que cree ese directorio.
+
+---
+
 ## Orden en que se hizo (y por qué)
 
 **M-02 → M-03 → M-01** era el bloque que impedía escalar: sin coherencia
@@ -448,11 +577,17 @@ M-09. Se respetó ese orden.
 
 ## Qué queda del plan
 
-Nada pendiente en la lista. Lo que sale de aquí no es una mejora más, sino la
-decisión de publicar (ver los dos puntos de "Dónde estamos") y, después,
-**volver a auditar ejecutando** — que es como se encontraron estos nueve. Los
-límites conocidos de cada mejora están anotados en su sección, no aquí, para que
-quien lea una mejora vea de una vez qué cubre y qué no.
+**M-10 a M-15**, todas nacidas de ejecutar el kit en un proyecto real — que es
+exactamente como se encontraron las nueve anteriores. Orden por daño: M-10 y M-11
+son las que rompen la primera experiencia de cualquiera que instale el kit; M-12 a
+M-14 son fricción; M-15 es latente.
+
+M-10 primero, y por un motivo que no es su severidad: mientras el verificador
+salga rojo con ruido, **nadie lo va a leer**, así que ninguna de las otras se
+podrá comprobar de verdad en la siguiente ejecución real.
+
+Los límites conocidos de cada mejora están anotados en su sección, no aquí, para
+que quien lea una mejora vea de una vez qué cubre y qué no.
 
 ## Hecho
 
