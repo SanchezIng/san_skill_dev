@@ -52,6 +52,8 @@ comprobar "pero NO los de las plantillas del kickstart (son documentacion)" $([ 
 
 printf '%s' "$SALIDA_INICIAL" | grep -q "FALTA (a mano"
 comprobar "la instalacion inicial dice lo que falta configurar" $?
+printf '%s' "$SALIDA_INICIAL" | grep -q "Sin rellenar todavia"
+comprobar "y que quedan placeholders por rellenar" $?
 
 # __pycache__ son binarios del interprete de otra maquina. Ya paso con las
 # plantillas (M-05) y volvio a pasar al meter un .py dentro de la skill.
@@ -166,6 +168,33 @@ comprobar "y avisa de que ha cambiado a modo actualizacion" $?
 # dos lineas seguidas) y el que se perdia el repaso sin que nadie lo pidiera.
 printf '%s' "$SALIDA4" | grep -q "REPASO de configuracion"
 comprobar "repetir el comando de instalacion tampoco pierde el repaso" $?
+
+# --- 5e. Un proyecto YA configurado tiene que poder salir LIMPIO ------------
+# El grep barria scripts/ entero, donde test_tablero.py, test_audit_check.py y
+# test_docs_check.py llevan placeholders como FIXTURE deliberado -- y son
+# exactamente los mismos nombres que los archivos de verdad. Asi que la lista no
+# podia salir vacia nunca: un "queda trabajo pendiente" permanente que nadie
+# podia satisfacer. Una lista que solo sabe decir que queda trabajo no informa de
+# nada, y se aprende a saltarla igual que un rojo que no significa nada.
+PROY5="$TMP/proyecto-configurado"
+mkdir -p "$PROY5"
+sh "$KIT/instalar.sh" "$PROY5" --protocolo >/dev/null 2>&1
+# Se rellena SOLO lo que el repaso mira. Las plantillas del kickstart se quedan
+# con sus {{...}} intactos: si el grep las mirara, este caso lo denunciaria.
+sed -i 's/{{[A-Z][A-Z0-9_]*}}/CONFIGURADO/g' "$PROY5"/.claude/skills/equipo-*/SKILL.md
+find "$PROY5/scripts" "$PROY5/security" -type f ! -name 'test_*' \
+     -exec sed -i 's/{{[A-Z][A-Z0-9_]*}}/CONFIGURADO/g' {} +
+SALIDA5="$(sh "$KIT/instalar.sh" "$PROY5" --protocolo 2>&1)"
+printf '%s' "$SALIDA5" | grep -q "Placeholders: ninguno pendiente"
+comprobar "un proyecto YA configurado imprime la lista VACIA" $?
+# Y este caso pasa por el otro camino que la ensuciaba, descubierto al ejecutarlo:
+# al conservar lo configurado se deja al lado la version del kit, de fabrica y
+# llena de placeholders. Si el .nuevo contara, ningun proyecto que haya
+# configurado algo y actualizado —o sea, todos— podria salir limpio jamas.
+[ -f "$PROY5/scripts/tablero.py.nuevo" ]
+comprobar "y lo hace CON archivos .nuevo pendientes de reconciliar al lado" $?
+grep -q '{{NOMBRE_PROYECTO}}' "$PROY5/.claude/skills/project-kickstart/references/plantillas.md"
+comprobar "y sale limpio SIN haber tocado las plantillas del kickstart" $?
 
 # --- 5d. --protocolo amplia una instalacion de fabrica ----------------------
 PROY4="$TMP/proyecto-fabrica"

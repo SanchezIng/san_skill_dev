@@ -117,7 +117,7 @@ kit, vuelve a gestionarse solo.
 
 La versión del kit está en `VERSION` (fecha) y queda sellada en el manifiesto del
 proyecto, así que siempre se puede saber con qué versión se instaló. Verifica el
-ciclo completo con `sh test_instalar.sh` (33 casos; en Windows tarda ~2 min
+ciclo completo con `sh test_instalar.sh` (37 casos; en Windows tarda ~2 min
 porque hace varias instalaciones reales de punta a punta).
 
 ### A) Proyecto nuevo (desde una idea)
