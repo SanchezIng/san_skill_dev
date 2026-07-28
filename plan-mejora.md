@@ -24,8 +24,8 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-09 🟠 | Deriva de ramas largas (hallazgo 4) | hecho |
 | M-10 🔴 | El verificador escanea el propio kit: 37 falsos positivos | hecho |
 | M-11 🔴 | El checklist post-instalación es inalcanzable al actualizar | hecho |
-| **M-12** 🟠 | **El grep de placeholders nunca puede salir limpio** | **pendiente — el siguiente** |
-| M-13 🟠 | El kickstart genera instrucciones que su entorno no puede ejecutar | pendiente |
+| M-12 🟠 | El grep de placeholders nunca puede salir limpio | hecho |
+| **M-13** 🟠 | **El kickstart genera instrucciones que su entorno no puede ejecutar** | **pendiente — el siguiente** |
 | M-14 🟠 | Dos correcciones de texto (tabla del README, Paso 9 vs instalador) | pendiente |
 | M-15 🟢 | Precedencia de operadores en `verificar_kit.py` | hecho (cayó dentro de M-10) |
 
@@ -534,24 +534,57 @@ la ruta de actualización fallan (`4 comprobacion(es) fallida(s)`). Con el arreg
 
 **Límite:** el repaso no sabe qué habéis configurado ya, así que en la
 actualización se lee entero aunque solo falte un punto. Lo que sí sabe es la lista
-de placeholders — y esa hoy miente por exceso, que es justo **M-12**. Hasta que se
-arregle, no se puede usar como semáforo de "no queda nada".
+de placeholders — **levantado en M-12**, que la dejó capaz de decir "ninguno
+pendiente".
 
 ## M-12 · 🟠 El grep de placeholders nunca puede salir limpio
 
-**Estado:** pendiente · **Origen:** primera ejecución real (informe, Bug 3)
+**Estado:** hecho (2026-07-27) · **Origen:** primera ejecución real (informe, Bug 3)
 
-El grep que imprime el instalador y documenta el README incluye `scripts/`, donde
-viajan `test_tablero.py`, `test_audit_check.py` y `test_docs_check.py` **con
-placeholders como fixture deliberado** (`cargar(owner="{{OWNER}}")`). Resultado: un
-"queda trabajo pendiente" permanente que nunca se puede satisfacer.
+**Corrección:** el grep vive **solo** en `instalar.sh`. El README nunca lo
+documentó — grepeado el repo entero, una única copia. La tarea de "arreglarlo
+también en el README" no existía.
+
+El grep incluye `scripts/`, donde viajan `test_tablero.py`, `test_audit_check.py` y
+`test_docs_check.py` **con placeholders como fixture deliberado**
+(`cargar(owner="{{OWNER}}")`) — y son **exactamente los mismos nombres** que los
+archivos de verdad, así que tapan la señal entera. Resultado: un "queda trabajo
+pendiente" permanente que nunca se puede satisfacer.
 
 Se introdujo el **mismo 2026-07-26**, al ampliar el grep a `scripts/` para que no
 se dejara fuera `{{GESTOR_PAQUETES}}`. Se arregló que faltaran y se creó que
 sobraran: los dos errores son el mismo, listar sobre un conjunto mal elegido.
 
-- [ ] Excluir `test_*` del grep, en `instalar.sh` y en el README.
-- [ ] Caso que compruebe que un proyecto **ya configurado** imprime la lista vacía.
+**Y había una segunda causa que solo apareció al ejecutarlo.** El primer intento
+—excluir `test_*` y nada más— seguía fallando el caso: cuando el instalador
+conserva un archivo que el equipo configuró, deja al lado la versión del kit como
+`<archivo>.nuevo`, **de fábrica y llena de placeholders**. Es decir, en cuanto un
+proyecto configura algo y actualiza —todos, tarde o temprano— la lista volvía a
+ser insatisfacible por otro camino. Y no son configuración pendiente: son copias
+esperando reconciliación, de las que ya informa `resumen_actualizacion` bajo
+CONSERVADOS. Excluir `test_*` era necesario y **no suficiente**.
+
+- [x] `--exclude='test_*'` y `--exclude='*.nuevo'` en el grep de `instalar.sh`
+      (en el README no había nada que arreglar). El segundo no estaba en el plan:
+      lo encontró el caso al ejecutarse.
+- [x] La lista deja de ser un volcado y pasa a decir una de dos cosas: «Sin
+      rellenar todavía: …» o **«Placeholders: ninguno pendiente.»**. Poder decir
+      lo segundo era el objetivo — una lista que solo sabe decir "queda trabajo"
+      no informa de nada, y se aprende a saltarla igual que un rojo que no
+      significa nada (M-10).
+- [x] Caso 5e: proyecto instalado, configurado y reinstalado → imprime la lista
+      vacía. Rellena **solo lo que el repaso mira**, así que si el grep volviera a
+      tocar las plantillas del kickstart el caso lo denunciaría; hay una
+      comprobación explícita de que esas plantillas siguen con sus `{{...}}`.
+- [x] Y el caso recíproco en la instalación inicial: ahí sí tiene que decir que
+      quedan.
+
+**Verificado bajando `instalar.sh` a la versión anterior:** fallan 2 de los casos
+nuevos. El tercero (`.nuevo` presentes) es una precondición del escenario, no una
+mordida: está para que quien lea el caso sepa que ese camino se está ejercitando
+de verdad. La segunda causa se comprobó a mano: con `--exclude='test_*'` puesto y
+sin `--exclude='*.nuevo'`, la lista seguía sacando 4 placeholders, los cuatro de
+archivos `.nuevo`. **37/37** con el arreglo.
 
 ## M-13 · 🟠 El kickstart genera instrucciones que su entorno no puede ejecutar
 
@@ -640,19 +673,18 @@ M-09. Se respetó ese orden.
 
 ## Qué queda del plan
 
-**M-12 a M-14**, todas nacidas de ejecutar el kit en un proyecto real — que es
+**M-13 y M-14**, las dos nacidas de ejecutar el kit en un proyecto real — que es
 exactamente como se encontraron las nueve anteriores.
 
-Las dos 🔴 ya están. M-10 fue primero por un motivo que no era su severidad:
-mientras el verificador saliera rojo con ruido, **nadie lo iba a leer**, así que
-ninguna de las otras se podría comprobar de verdad en la siguiente ejecución real.
-M-15 cayó con ella por vivir en la misma expresión. Después M-11, que era la que
-se disparaba en la ruta *más probable* de uso — la segunda ejecución del
-instalador.
+El bloque M-10 → M-11 → M-12 se hizo en ese orden y por un hilo común: las tres
+eran señales que gritaban en falso. El verificador salía rojo con ruido (M-10), el
+repaso de configuración no llegaba a la ruta más usada (M-11), y la lista de
+placeholders no podía salir limpia nunca (M-12). Una señal que no puede estar en
+verde no es una señal, y se aprende a saltarla. M-15 cayó dentro de M-10 por vivir
+en la misma expresión.
 
-Sigue **M-12**, y ya no es solo fricción: el repaso de M-11 se apoya en esa lista
-de placeholders, y mientras la lista mienta por exceso el repaso no puede decir
-"no queda nada". Después M-13 y M-14.
+Sigue **M-13**: es la única que queda que afecta a lo que el kit *produce*, no a
+lo que informa. M-14 al final, que son dos correcciones de texto.
 
 Los límites conocidos de cada mejora están anotados en su sección, no aquí, para
 que quien lea una mejora vea de una vez qué cubre y qué no.

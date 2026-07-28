@@ -3,6 +3,43 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-07-27 (3) — Una lista que solo sabe decir "queda trabajo" no informa
+
+El grep de placeholders que imprime `instalar.sh` barría `scripts/` entero, donde
+`test_tablero.py`, `test_audit_check.py` y `test_docs_check.py` llevan
+placeholders como **fixture deliberado** — y son exactamente los mismos nombres
+que los archivos de verdad, así que tapaban la señal completa. La lista no podía
+salir vacía nunca: un "queda trabajo pendiente" permanente e insatisfacible.
+
+Se había introducido el mismo 2026-07-26, al ampliar el grep a `scripts/` para no
+dejar fuera `{{GESTOR_PAQUETES}}`. Se arregló que faltaran y se creó que sobraran:
+los dos errores son el mismo, **listar sobre un conjunto mal elegido**.
+
+**Y había una segunda causa que solo apareció al ejecutar el caso.** Excluir
+`test_*` no bastaba: cuando el instalador conserva un archivo que el equipo
+configuró, deja al lado la versión del kit como `<archivo>.nuevo`, de fábrica y
+llena de placeholders. O sea, en cuanto un proyecto configura algo y actualiza
+—todos, tarde o temprano— la lista volvía a ensuciarse por otro camino. Y no son
+configuración pendiente: son copias esperando reconciliación, de las que ya
+informa `resumen_actualizacion` bajo CONSERVADOS. Vale la pena decirlo porque el
+plan daba `test_*` por suficiente, y lo era solo en un proyecto recién instalado —
+justo el que nadie tiene después del primer día.
+
+La lista deja de ser un volcado: ahora dice «Sin rellenar todavía: …» o
+**«Placeholders: ninguno pendiente.»**. Poder decir lo segundo era el objetivo. Es
+la misma lección de las dos entradas anteriores: una señal que no puede estar en
+verde no es una señal, y se aprende a saltarla.
+
+De paso, una corrección al plan: ese grep vive **solo** en `instalar.sh`. El
+README nunca lo documentó, así que la tarea de arreglarlo "también en el README"
+no existía.
+
+Cierra M-12. 4 casos nuevos, **37** en la suite del instalador. Verificado
+bajando `instalar.sh` a la versión anterior: fallan 2 (el tercero es una
+precondición del escenario, no una mordida). La segunda causa se comprobó a mano:
+con `test_*` excluido y sin `*.nuevo`, seguían saliendo 4 placeholders, los cuatro
+de archivos `.nuevo`.
+
 ## 2026-07-27 (2) — El checklist vivía después del `exit 0`
 
 `instalar.sh` terminaba la ruta de actualización con `resumen_actualizacion;

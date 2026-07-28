@@ -185,10 +185,34 @@ pendiente_de_configurar() {
     # quedaba sin poner. El kickstart NO se mira: sus plantillas están llenas de
     # {{...}} a propósito, que son documentación, no configuración pendiente.
     # El patrón lleva dígitos ([A-Z0-9_]) porque {{CUANDO_NIVEL_2}} existe.
-    grep -rho '{{[A-Z][A-Z0-9_]*}}' \
+    #
+    # `test_*` fuera, y por el mismo motivo que el kickstart: test_tablero.py,
+    # test_audit_check.py y test_docs_check.py llevan placeholders como FIXTURE
+    # deliberado, y son justo los mismos nombres que los archivos de verdad. Con
+    # ellos dentro la lista no podia salir vacia NUNCA: un "queda trabajo
+    # pendiente" permanente e insatisfacible, que es como se ensena a ignorarla.
+    # Se introdujo al ampliar el grep a scripts/ para no dejar fuera
+    # {{GESTOR_PAQUETES}}: se arreglo que faltaran y se creo que sobraran. Los
+    # dos errores son el mismo — listar sobre un conjunto mal elegido.
+    #
+    # `*.nuevo` fuera por lo mismo, y esto solo aparece al ejecutarlo: cuando
+    # conservamos un archivo que el equipo configuro, dejamos al lado la version
+    # del kit, que es la de fabrica y viene LLENA de placeholders. O sea, en
+    # cuanto un proyecto configura algo y actualiza —todos, tarde o temprano— la
+    # lista volvia a ser insatisfacible por otro camino. Y no son configuracion
+    # pendiente: son copias esperando reconciliacion, y de ellas ya informa
+    # `resumen_actualizacion` bajo CONSERVADOS.
+    _pendientes="$(grep -rho --exclude='test_*' --exclude='*.nuevo' '{{[A-Z][A-Z0-9_]*}}' \
         "$DESTINO/.claude/skills/equipo-"*/SKILL.md \
-        "$DESTINO/scripts/" "$DESTINO/security/" 2>/dev/null | sort -u | tr '\n' ' '
+        "$DESTINO/scripts/" "$DESTINO/security/" 2>/dev/null | sort -u | tr '\n' ' ')"
     echo
+    if [ -n "$_pendientes" ]; then
+        echo "  Sin rellenar todavia: $_pendientes"
+    else
+        # Poder decir esto es el objetivo: una lista que solo sabe decir "queda
+        # trabajo" no informa de nada.
+        echo "  Placeholders: ninguno pendiente."
+    fi
     return 0
 }
 
