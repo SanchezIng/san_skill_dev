@@ -25,8 +25,8 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-10 🔴 | El verificador escanea el propio kit: 37 falsos positivos | hecho |
 | M-11 🔴 | El checklist post-instalación es inalcanzable al actualizar | hecho |
 | M-12 🟠 | El grep de placeholders nunca puede salir limpio | hecho |
-| **M-13** 🟠 | **El kickstart genera instrucciones que su entorno no puede ejecutar** | **pendiente — el siguiente** |
-| M-14 🟠 | Dos correcciones de texto (tabla del README, Paso 9 vs instalador) | pendiente |
+| M-13 🟠 | El kickstart genera instrucciones que su entorno no puede ejecutar | hecho |
+| **M-14** 🟠 | **Dos correcciones de texto (tabla del README, Paso 9 vs instalador)** | **pendiente — la última** |
 | M-15 🟢 | Precedencia de operadores en `verificar_kit.py` | hecho (cayó dentro de M-10) |
 | M-16 🟠 | El DoD generado mezcla ítems post-merge sin marcarlos | pendiente |
 
@@ -596,7 +596,7 @@ archivos `.nuevo`. **37/37** con el arreglo.
 
 ## M-13 · 🟠 El kickstart genera instrucciones que su entorno no puede ejecutar
 
-**Estado:** pendiente · **Origen:** primera ejecución real (informe, E1 y Bug 5)
+**Estado:** hecho (2026-07-28) · **Origen:** primera ejecución real (informe, E1 y Bug 5)
 
 **Cómo fue la ejecución** (aclarado por quien la hizo): no se ejecutó el kit en
 seco. La sesión llevaba puestos, antes de empezar, un contexto inicial, **el diseño
@@ -622,10 +622,55 @@ La regla que falta, entonces, no es "no digas «abre el prototipo»" — es que 
 instrucción heredada de la entrada se reescriba en términos ejecutables por quien
 va a ejecutarla**.
 
-- [ ] Fila en la tabla de entorno («Antes del Paso 0 → A») para "mirar un diseño".
-- [ ] Regla al generar: si una instrucción no es ejecutable en el entorno de
-      destino, se escribe **el procedimiento que sí lo es** — y si hizo falta una
-      herramienta (un desempaquetador), se deja en el repo, no en la sesión.
+- [x] Fila en la tabla de entorno («Antes del Paso 0 → A») para "mirar un diseño",
+      más el párrafo del caso *bundled*: qué es, por qué un `Read` devuelve base64
+      y que el desempaquetador **se deja en `scripts/`**, no en la sesión.
+- [x] Regla 8 de «Reglas de calidad de los archivos generados», que es donde vivían
+      las otras siete inviolables: lo heredado de la entrada se traduce al
+      procedimiento que sí funciona, y la herramienta que hizo falta se queda en el
+      repo. Con el caso real escrito debajo, porque una regla sin su historia se
+      borra en el primer refactor.
+- [x] **El mecanismo, que es lo que separa esto de una recomendación:** regla 6 de
+      `verificar_kit.py` (`ordenes_sin_procedimiento`), en el Paso 10. Una orden de
+      mirar un diseño sale roja salvo que a su lado esté el comando **y** la
+      herramienta exista en el repo. Las dos mitades importan y las dos fallaron:
+      sin comando sigue siendo «míralo», y con un comando a un script que se cerró
+      con la sesión, la siguiente lo rehace.
+- [x] Y que la fila y la regla no puedan desaparecer en silencio:
+      `ejecutabilidad_documentada()` en `kickstart_check.py`. La fila se exige
+      cuando la tabla existe —borrar la tabla entera ya lo caza
+      `entorno_traducido`, y acusar de una fila ausente en una tabla ausente sería
+      el ruido de M-10—; la sección de calidad se exige siempre.
+
+**Lo que NO cubre, y se dice aquí en vez de dejarlo implícito:** la regla 6 mira la
+forma concreta que ya apareció —órdenes de mirar un artefacto de diseño— y no
+juzga si una instrucción cualquiera es ejecutable, que es un problema abierto. En
+particular, `diseño` a secas queda fuera del patrón a propósito: en español cubre
+«el diseño de la base de datos», que se mira leyendo un `.md`. La regla general
+vive en la skill; el que muerde solo muerde lo que se sabe que aparece.
+
+**Verificado bajando el código a la versión anterior:** de los 9 casos nuevos de
+`test_verificar_kit.py`, los 5 que acusan fallan contra ella (30/35); los otros 4
+son recíprocos —lo que NO debe morder— y por construcción pasan en ambas. En
+`test_kickstart_check.py`, 3 de los 4 nuevos fallan (33/36). Con el arreglo, 35/35
+y 36/36.
+
+**Y verificado donde importa: contra el proyecto real.** Ejecutado sobre
+BarberCrow, el verificador saca **13 fallos y los 13 son verdaderos** — las órdenes
+de abrir el prototipo que quedaron en la guía, en el README, en el handoff de F1.3
+y en el contexto inicial. Cero ruido, que es la condición que dejó puesta M-10.
+
+Esa ejecución corrigió el arreglo a mitad de camino, y conviene que quede escrito.
+La primera versión saltaba los bloques de código, como hacen las otras cuatro
+reglas —ahí viven plantillas y ejemplos—, y encontró **2** de los 13. Las once que
+faltaban estaban DENTRO de los prompts: en la guía generada los bloques no son
+ejemplos, son lo que el dev pega literal (regla 2 de calidad). Esta regla los mira,
+es la única que lo hace, y el porqué está escrito a su lado. La segunda corrección
+fue el orden de las palabras: «ABRE el prototipo» se veía y «(pantalla 8 del
+prototipo — ábrelo)» no.
+
+Sin esa comprobación contra el proyecto real, el mecanismo habría pasado sus 35
+casos verdes cubriendo el 15% del fallo que decía cubrir.
 
 ## M-14 · 🟠 Dos correcciones de texto que costaron trabajo real
 
@@ -743,8 +788,8 @@ M-09. Se respetó ese orden.
 
 ## Qué queda del plan
 
-**M-13, M-14 y M-16**, las tres nacidas de ejecutar el kit en un proyecto real —
-que es exactamente como se encontraron las nueve anteriores.
+**M-14 y M-16**, las dos que quedan de ejecutar el kit en un proyecto real — que
+es exactamente como se encontraron las nueve anteriores.
 
 El bloque M-10 → M-11 → M-12 se hizo en ese orden y por un hilo común: las tres
 eran señales que gritaban en falso. El verificador salía rojo con ruido (M-10), el
@@ -753,12 +798,13 @@ placeholders no podía salir limpia nunca (M-12). Una señal que no puede estar 
 verde no es una señal, y se aprende a saltarla. M-15 cayó dentro de M-10 por vivir
 en la misma expresión.
 
-Sigue **M-13**, y detrás **M-16**: las dos que afectan a lo que el kit *produce*,
-no a lo que informa. Van juntas y en ese orden porque tocan el mismo sitio —lo que
-el kickstart escribe en la guía— y comparten la regla de fondo: **lo generado tiene
-que ser ejecutable por quien va a ejecutarlo, y en el orden en que va a ejecutarlo**.
-M-13 primero por ser la más grave de las dos. M-14 al final, que son dos
-correcciones de texto.
+**M-13 se hizo el 2026-07-28** y dejó puesta la mitad del andamio que M-16
+necesita: la regla 8 de calidad ya dice que lo generado tiene que ser ejecutable
+por quien va a ejecutarlo, y `verificar_kit.py` ya sabe morder sobre el texto de
+la guía generada. M-16 es la otra mitad de la misma frase —**y en el orden en que
+va a ejecutarlo**— y entra por ahí en vez de inventarse un sitio nuevo.
+
+Sigue **M-16**, y **M-14** al final, que son dos correcciones de texto.
 
 Los límites conocidos de cada mejora están anotados en su sección, no aquí, para
 que quien lea una mejora vea de una vez qué cubre y qué no.
