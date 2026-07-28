@@ -9,7 +9,7 @@ Estado: `pendiente` · `en curso` · `hecho` · `descartado`.
 Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 [`hallazgos/2026-07-22-aplicacion-de-reglas.md`](hallazgos/2026-07-22-aplicacion-de-reglas.md)).
 
-## Dónde estamos (al 2026-07-26)
+## Dónde estamos (al 2026-07-28)
 
 | | Mejora | Estado |
 |---|---|---|
@@ -28,6 +28,7 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | **M-13** 🟠 | **El kickstart genera instrucciones que su entorno no puede ejecutar** | **pendiente — el siguiente** |
 | M-14 🟠 | Dos correcciones de texto (tabla del README, Paso 9 vs instalador) | pendiente |
 | M-15 🟢 | Precedencia de operadores en `verificar_kit.py` | hecho (cayó dentro de M-10) |
+| M-16 🟠 | El DoD generado mezcla ítems post-merge sin marcarlos | pendiente |
 
 **M-01 a M-09 están cerradas.** Los tres hallazgos que quedaban sin implementar
 (2, 3 y 4) tienen ya su mecanismo, y los cinco defectos de la auditoría del
@@ -39,6 +40,13 @@ sobre un proyecto de verdad (BarberCrow, 2026-07-26):
 Confirma el patrón de toda esta jornada: **lo que está testeado aguanta; lo que
 nunca se había ejecutado tenía bugs**. Las tres graves son de la propia jornada —
 M-12 se introdujo el mismo día que se creyó arreglar el problema contrario.
+
+**M-16 es de la segunda ejecución** del mismo proyecto (2026-07-28):
+[`hallazgo-items-post-merge.md`](Projects-Aplicados-kit/Barber-king/hallazgo-items-post-merge.md).
+Trae una lección distinta a las anteriores: la regla estaba escrita y era correcta
+en los tres sitios donde el kit la enseña, y aun así no se aplicó, porque el sitio
+donde se va tachando el trabajo —el DoD— no la reflejaba. **Tener la regla escrita
+en el sitio correcto no basta si falta en el sitio que se mira.**
 
 Todo el trabajo está **commiteado en local y sin publicar**:
 `git log origin/main..HEAD`. Quedan dos cosas por decidir antes de publicar:
@@ -661,6 +669,68 @@ requiere un directorio con ese nombre— pero es un fallo de lectura, no de esti
       no falla: revienta (`PermissionError` al abrir el directorio), que es
       exactamente el modo de fallo descrito.
 
+## M-16 · 🟠 El DoD generado mezcla ítems post-merge sin marcarlos
+
+**Estado:** pendiente · **Origen:** segunda ejecución real (BarberCrow, 2026-07-28)
+
+En F1.5 se abrió el catálogo —pasar F2/F3/F7.1 a `Disponible`— **con la tarea
+todavía En progreso**, o sea antes de mergear. No la reclamó nadie en esa ventana,
+pero el riesgo era real: otro dev habría empezado sobre un contrato que la revisión
+aún podía cambiar. El tag, que es la misma clase de acción, sí se hizo después de
+mergear. No había un criterio equivocado detrás: se estaba improvisando ítem a
+ítem.
+
+El DoD de F1.5 es una lista plana donde conviven cosas de naturaleza distinta y
+nada marca cuáles van después del merge:
+
+```
+- [ ] 8 módulos con contrato tipado y regla de frontera activa
+- [ ] Hito F1 demostrado
+- [ ] Tag v0.1.0                                        ← post-merge
+- [ ] DoD estándar + handoff
+- [ ] Se abre el catálogo: F2/F3/F7.1 pasan a Disponible ← post-merge
+```
+
+**Corrección a la primera atribución, y va en contra de lo que se dijo al
+reportarlo:** la sospecha era que la skill se quedaba en el PR y no cubría el
+post-merge. Es falso. `cerrar-sesion.SKILL.md:65-66` lo dice con estas palabras:
+«a **Terminado** al mergear. Poner en **Disponible** los items cuyas dependencias
+quedaron cumplidas». Y `trabajo_en_equipo.md:94` es la regla 7, que llega intacta
+al `equipo.md` generado. La regla estaba escrita en tres sitios —`equipo.md`,
+`/cerrar-sesion` y el propio log del tablero, que lo dejó dicho al cerrar T-002 y
+T-003—, y se leyó, y no se aplicó.
+
+Así que el reparto es **peor para quien ejecutó y más estrecho para el kit** de lo
+que parecía: el kit no enseña la regla mal, la enseña en todas partes **menos en
+el sitio que uno va tachando**. Es un hueco de presentación, no de contenido. Pero
+es exactamente el mismo patrón del bloque M-10..M-12: la señal existe y es
+correcta, y aun así no funciona por cómo se presenta.
+
+**Y aquí está lo que le toca al kit,** que es lo único accionable: el arreglo ya
+se aplicó **en el archivo generado** de BarberCrow —tabla en el preámbulo de
+`guia_desarrollo.md:15-23` y marcas `⏭️ post-merge` en las líneas 298, 299, 576,
+674, 938 y 995—. En el kit no hay nada. `F1.5`, `post-merge` y el desbloqueo del
+catálogo no aparecen en ningún archivo de `kit-construction-project/` (grepeado).
+El próximo proyecto generado nace con el mismo DoD plano.
+
+Misma familia que **M-13**: el kit no controla lo que entra, pero sí lo que
+genera, y lo que genera no es ejecutable en el orden en que se va a ejecutar. La
+diferencia es que M-13 es sobre instrucciones imposibles y esta es sobre
+instrucciones posibles **en el orden equivocado**.
+
+- [ ] Regla al generar los DoD: los ítems que dependen del merge —taguear, mover a
+      Terminado, desbloquear dependientes— se emiten **marcados**, no al mismo
+      nivel que lo que se construye antes.
+- [ ] Y decir que el desbloqueo aplica a **toda** subfase, no solo a las que lo
+      escriben en su DoD: es la regla 7, pero si solo la menciona una, en las
+      demás depende de que alguien se acuerde. Regla sin mecanismo.
+- [ ] Caso en `kickstart_check.py` o `verificar_kit.py` que muerda: un DoD
+      generado con un tag sin marcar sale rojo. Sin esto es una recomendación, y
+      este plan existe para no dejar recomendaciones.
+
+**Límite:** marcar el orden no impide saltárselo. Lo que quita es la excusa de que
+la lista no lo decía — que es lo único que el kit puede quitar desde aquí.
+
 ---
 
 ## Orden en que se hizo (y por qué)
@@ -673,8 +743,8 @@ M-09. Se respetó ese orden.
 
 ## Qué queda del plan
 
-**M-13 y M-14**, las dos nacidas de ejecutar el kit en un proyecto real — que es
-exactamente como se encontraron las nueve anteriores.
+**M-13, M-14 y M-16**, las tres nacidas de ejecutar el kit en un proyecto real —
+que es exactamente como se encontraron las nueve anteriores.
 
 El bloque M-10 → M-11 → M-12 se hizo en ese orden y por un hilo común: las tres
 eran señales que gritaban en falso. El verificador salía rojo con ruido (M-10), el
@@ -683,8 +753,12 @@ placeholders no podía salir limpia nunca (M-12). Una señal que no puede estar 
 verde no es una señal, y se aprende a saltarla. M-15 cayó dentro de M-10 por vivir
 en la misma expresión.
 
-Sigue **M-13**: es la única que queda que afecta a lo que el kit *produce*, no a
-lo que informa. M-14 al final, que son dos correcciones de texto.
+Sigue **M-13**, y detrás **M-16**: las dos que afectan a lo que el kit *produce*,
+no a lo que informa. Van juntas y en ese orden porque tocan el mismo sitio —lo que
+el kickstart escribe en la guía— y comparten la regla de fondo: **lo generado tiene
+que ser ejecutable por quien va a ejecutarlo, y en el orden en que va a ejecutarlo**.
+M-13 primero por ser la más grave de las dos. M-14 al final, que son dos
+correcciones de texto.
 
 Los límites conocidos de cada mejora están anotados en su sección, no aquí, para
 que quien lea una mejora vea de una vez qué cubre y qué no.
