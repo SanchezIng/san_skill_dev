@@ -285,14 +285,17 @@ def generar_en(tmp, mod, contenido_previo=None):
     return ruta.read_text(encoding="utf-8")
 
 
-@caso("generar de cero: crea el archivo con tablas Y con el log a mano vacio")
+@caso("generar de cero: tablas, aviso de que no se comitea y log vacio pero dicho")
 def _():
     mod = preparar_generar(cargar(), TRES)
     with tempfile.TemporaryDirectory() as tmp:
         texto = generar_en(tmp, mod)
     assert "T-002 API (#2)" in texto, texto
     assert "| B |" in texto, texto
-    assert "Log de reclamos" in texto and "no se genera nunca" in texto, texto
+    assert "NO se comitea" in texto, texto
+    # Sin entradas se DICE que no las hay, en vez de dejar un hueco mudo que
+    # se lee igual que "aqui no ha pasado nada".
+    assert "todavía sin entradas" in texto, texto
 
 
 @caso("las tareas Terminado no se listan, pero se DICE cuantas hay")
@@ -304,14 +307,19 @@ def _():
     assert "1 tarea(s) en Terminado no se listan" in texto, texto
 
 
-@caso("EL LOG ESCRITO A MANO SOBREVIVE a regenerar")
+@caso("EL LOG ESCRITO A MANO SOBREVIVE a regenerar (ahora, desde progreso/log/)")
 def _():
+    # La garantia no cambia —lo que escribio una persona no se pierde— pero el
+    # sitio si: antes se conservaba por posicion dentro del archivo, ahora
+    # sobrevive porque vive fuera de el.
     mod = preparar_generar(cargar(), TRES)
     with tempfile.TemporaryDirectory() as tmp:
-        primero = generar_en(tmp, mod)
         ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
-        nota = "- 2026-07-26 Ana: el endpoint choca con la migracion; NO tocar hasta F4\n"
-        ruta.write_text(primero + nota, encoding="utf-8")
+        log = ruta.parent / "log"
+        log.mkdir(parents=True)
+        nota = "2026-07-26 Ana: el endpoint choca con la migracion; NO tocar hasta F4\n"
+        (log / "2026-07-26-ana-endpoint.md").write_text(nota, encoding="utf-8")
+        mod.generar(str(ruta), hoy="2026-07-26")
         mod2 = preparar_generar(cargar(), [tarea("T-009 Nueva", "Disponible", ["A"])])
         mod2.generar(str(ruta), hoy="2026-07-27")
         despues = ruta.read_text(encoding="utf-8")
@@ -320,8 +328,12 @@ def _():
     assert "T-002 API" not in despues, "quedo estado viejo en la tabla"
 
 
-@caso("lo escrito ANTES del bloque tambien se respeta")
+@caso("lo que alguien escriba en el tablero SE PIERDE al regenerar, a proposito")
 def _():
+    # Antes se conservaba lo de fuera del bloque. Ya no: el archivo no se
+    # comitea y es 100% generado, asi que conservar texto suelto solo serviria
+    # para que alguien creyera que ahi se puede escribir. Lo que hay que contar
+    # va en progreso/log/, que si sobrevive.
     mod = preparar_generar(cargar(), TRES)
     with tempfile.TemporaryDirectory() as tmp:
         primero = generar_en(tmp, mod)
@@ -331,7 +343,8 @@ def _():
             "# Tablero\n\n> Ojo: los viernes no se reclama nada."), encoding="utf-8")
         mod.generar(str(ruta), hoy="2026-07-26")
         despues = ruta.read_text(encoding="utf-8")
-    assert "los viernes no se reclama nada" in despues, despues
+    assert "los viernes no se reclama nada" not in despues, despues
+    assert "# Tablero del Equipo" in despues, despues
 
 
 @caso("regenerar dos veces sin cambios: mismo texto (no ensucia el diff)")
@@ -345,35 +358,105 @@ def _():
     assert uno == dos, "el orden de la API no debe cambiar el archivo"
 
 
-@caso("TABLERO ESCRITO A MANO (sin marcas): NO se pisa, se explica como adoptarlo")
+@caso("TABLERO VIEJO con el log DENTRO: no se regenera, se explica como migrar")
 def _():
+    # Lo unico irrecuperable del tablero es el log: nadie puede reescribir por
+    # que se atasco algo hace tres semanas. Regenerar encima lo borraria.
     mod = preparar_generar(cargar(), TRES)
-    a_mano = "# Tablero\n\n| Modulo | Estado |\n|---|---|\n| A | En progreso |\n"
+    viejo = (
+        "# Tablero del Equipo\n\n## Log de reclamos\n\n"
+        "- 2026-07-01 alguien reclama T-001 — y explica por que\n"
+    )
     with tempfile.TemporaryDirectory() as tmp:
         ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
         ruta.parent.mkdir(parents=True)
-        ruta.write_text(a_mano, encoding="utf-8")
+        ruta.write_text(viejo, encoding="utf-8")
         try:
             mod.generar(str(ruta))
             raise AssertionError("deberia haber fallado")
         except mod.ErrorDeConfiguracion as e:
-            assert "No se toca" in str(e), e
-            assert "borra el archivo" in str(e), e
-        assert ruta.read_text(encoding="utf-8") == a_mano, "ha modificado el archivo"
+            assert "todavia lleva el log DENTRO" in str(e), e
+            assert "Migralas primero" in str(e), e
+        assert ruta.read_text(encoding="utf-8") == viejo, "ha modificado el archivo"
 
 
-@caso("marcas duplicadas (mal merge): tampoco se escribe a ciegas")
+@caso("con el log YA migrado, regenerar encima del viejo es seguro")
 def _():
     mod = preparar_generar(cargar(), TRES)
     with tempfile.TemporaryDirectory() as tmp:
-        primero = generar_en(tmp, mod)
         ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
-        ruta.write_text(primero + primero, encoding="utf-8")
-        try:
-            mod.generar(str(ruta))
-            raise AssertionError("deberia haber fallado")
-        except mod.ErrorDeConfiguracion as e:
-            assert "exactamente una marca" in str(e), e
+        ruta.parent.mkdir(parents=True)
+        ruta.write_text("# T\n\n## Log de reclamos\n\n- 2026-07-01 x\n", encoding="utf-8")
+        log = ruta.parent / "log"
+        log.mkdir()
+        (log / "2026-07-01-x.md").write_text("2026-07-01 x\n", encoding="utf-8")
+        mod.generar(str(ruta))  # no debe lanzar
+        assert "2026-07-01 x" in ruta.read_text(encoding="utf-8")
+
+
+@caso("el log se ensambla ORDENADO y desde la carpeta del tablero, no del CWD")
+def _():
+    # Atarlo al directorio actual hacia que generar en otra ruta ensamblara el
+    # log del repo real: el archivo parecia bueno y hablaba de otra cosa.
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        log = ruta.parent / "log"
+        log.mkdir(parents=True)
+        (log / "2026-07-09-tarde.md").write_text("2026-07-09 ENTRADA TARDIA\n", encoding="utf-8")
+        (log / "2026-07-02-pronto.md").write_text(
+            "2026-07-02 ENTRADA TEMPRANA\n  con continuacion indentada\n", encoding="utf-8")
+        mod.generar(str(ruta))
+        texto = ruta.read_text(encoding="utf-8")
+        assert texto.index("ENTRADA TEMPRANA") < texto.index("ENTRADA TARDIA"), "sin ordenar"
+        assert "- 2026-07-02 ENTRADA TEMPRANA" in texto, "no la pinta como vineta"
+        assert "  con continuacion indentada" in texto, "pierde continuaciones"
+
+
+@caso("decisiones y pendientes se ensamblan desde sus carpetas")
+def _():
+    # Mismo remedio que el log, aplicado a las tres secciones de estado-actual
+    # que cambiaban en cada PR. Si esto deja de ensamblarse, el generado no
+    # miente: se queda MUDO, que es peor — parece que no hay decisiones.
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        ruta.parent.mkdir(parents=True)
+        (ruta.parent / "decisiones").mkdir()
+        (ruta.parent / "pendientes").mkdir()
+        (ruta.parent / "decisiones" / "a.md").write_text(
+            "El dinero va en Decimal, jamas en number\n", encoding="utf-8")
+        (ruta.parent / "pendientes" / "b.md").write_text(
+            "Playwright no corre en CI todavia\n", encoding="utf-8")
+        mod.generar(str(ruta))
+        texto = ruta.read_text(encoding="utf-8")
+    assert "- El dinero va en Decimal" in texto, texto
+    assert "- Playwright no corre en CI" in texto, texto
+
+
+@caso("sin decisiones, se DICE que no hay (no un hueco mudo)")
+def _():
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        texto = generar_en(tmp, mod)
+    assert "Decisiones técnicas vivas" in texto, texto
+    assert "_(sin entradas)_" in texto, texto
+
+
+@caso("dos ramas que añaden entradas DISTINTAS no pueden conflictar")
+def _():
+    # Es la razon de ser del cambio: cada entrada es un fichero propio, asi que
+    # dos ramas escriben ficheros distintos y git las une sin preguntar.
+    mod = preparar_generar(cargar(), TRES)
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        log = ruta.parent / "log"
+        log.mkdir(parents=True)
+        (log / "2026-07-02-rama-a.md").write_text("2026-07-02 rama A\n", encoding="utf-8")
+        (log / "2026-07-02-rama-b.md").write_text("2026-07-02 rama B\n", encoding="utf-8")
+        mod.generar(str(ruta))
+        texto = ruta.read_text(encoding="utf-8")
+        assert "rama A" in texto and "rama B" in texto, "se ha perdido una entrada"
 
 
 @caso("LISTADO RECORTADO: no escribe media verdad, muerde")
@@ -463,18 +546,57 @@ def _():
         assert not (Path(tmp) / "progreso" / "tablero-equipo.md").exists()
 
 
-@caso("main() --generar informa de que el log no se ha tocado")
+@caso("toda llamada a `gh` decodifica en utf-8, no en la codepage de Windows ")
+def _():
+    # El bug real: `text=True` sin `encoding=` decodifica con la codepage del
+    # sistema (cp1252 en el equipo, que es Windows entero), y el ⏸️ del titulo
+    # de T-016 reventaba la herramienta con UnicodeDecodeError. Los mocks de
+    # esta suite se tragan la decodificacion, asi que lo que se asevera es el
+    # kwarg — que ES el arreglo — y ademas se pasa un titulo con ⏸️ de punta a
+    # punta para que el resto del camino (parseo y escritura) lo digiera.
+    kwargs_vistos = []
+
+    def espia(cmd, **kw):
+        kwargs_vistos.append(kw)
+        salida = json.dumps({"items": [tarea("T-016 ⏸️ Facturacion", "Bloqueada",
+                                             ["C"], [], 16)], "totalCount": 1})
+        return subprocess.CompletedProcess(cmd, 0, salida, "")
+
+    mod = cargar()
+    mod._graphql = lambda ambito: proyecto(TODAS) if ambito == "user" else None
+    mod.subprocess.run = espia
+    with tempfile.TemporaryDirectory() as tmp:
+        contenido = generar_en(tmp, mod)
+    assert "⏸" in contenido, "el titulo con el emoji debe llegar al tablero"
+    assert kwargs_vistos, "no hubo ninguna llamada a gh"
+    for kw in kwargs_vistos:
+        assert kw.get("encoding") == "utf-8", f"llamada a gh sin encoding utf-8: {kw}"
+
+    # Y la otra frontera con gh (_gh_graphql, la que usa --mover):
+    kwargs_vistos.clear()
+    mod2 = cargar()
+    mod2.subprocess.run = espia
+    mod2._gh_graphql("query {}", {})
+    assert kwargs_vistos and kwargs_vistos[0].get("encoding") == "utf-8", kwargs_vistos
+
+
+@caso("main() --generar cuenta las entradas y recuerda que NO se comitea")
 def _():
     import io
     import contextlib
     mod = preparar_generar(cargar(), TRES)
     with tempfile.TemporaryDirectory() as tmp:
-        ruta = str(Path(tmp) / "progreso" / "tablero-equipo.md")
+        ruta = Path(tmp) / "progreso" / "tablero-equipo.md"
+        log = ruta.parent / "log"
+        log.mkdir(parents=True)
+        (log / "2026-07-02-una.md").write_text("2026-07-02 una\n", encoding="utf-8")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            codigo = mod.main(["--generar", ruta])
+            codigo = mod.main(["--generar", str(ruta)])
+    salida = buf.getvalue()
     assert codigo == 0, codigo
-    assert "log de reclamos no se ha tocado" in buf.getvalue(), buf.getvalue()
+    assert "1 entrada(s)" in salida, salida
+    assert "NO se comitea" in salida, salida
 
 
 @caso("main() --generar que falla: avisa de que el archivo es de ANTES")

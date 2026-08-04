@@ -34,6 +34,12 @@ desviarse. El LOG de reclamos, en cambio, no se genera jamas: la tabla es un
 hecho mecanico, el log es causalidad (por que una tarea se atasco, que trampa
 costo un intento fallido) y ninguna automatizacion escribiria eso.
 
+Desde 2026-07-28 el log vive en `progreso/log/`, UNA ENTRADA POR FICHERO, y la
+tabla NO se comitea (.gitignore). Antes compartian archivo y ese archivo lo
+tocaba toda rama, asi que conflictaba en cada PR: el 2026-07-28, con 3 PRs
+abiertos, los 3 chocaban ahi. Ficheros separados hacen el conflicto imposible en
+vez de gestionarlo. `--generar` ensambla tabla + log para leerlo de un tirón.
+
 Uso:
     python3 scripts/tablero.py --comprobar          # diagnostico (exit 1 si falla)
     python3 scripts/tablero.py --ids                # JSON con los IDs resueltos
@@ -46,6 +52,7 @@ Tests:
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from datetime import date
@@ -82,6 +89,31 @@ LIMITE_ITEMS = 500
 RUTA_TABLERO = "progreso/tablero-equipo.md"
 MARCA_INICIO = "<!-- TABLERO GENERADO por scripts/tablero.py --generar · NO EDITAR A MANO -->"
 MARCA_FIN = "<!-- FIN DEL TABLERO GENERADO · lo de abajo es tuyo -->"
+
+# El log YA NO vive dentro del tablero: cada entrada es un fichero suelto aqui.
+#
+# El motivo no es orden, es aritmetica de merges. Antes la tabla y el log
+# compartian archivo, y ese archivo lo tocaba TODA rama: la tabla porque cada
+# quien la regeneraba en un momento distinto, y el log porque todos añadian al
+# final. El comentario del esqueleto llegó a afirmar que añadir al final "evita
+# conflictos de merge" — es exactamente al reves, y es el caso de conflicto mas
+# clasico que hay. El 2026-07-28, con 3 PRs abiertos, los 3 conflictaban aqui.
+#
+# Un fichero por entrada lo hace IMPOSIBLE: dos ramas que escriben entradas
+# distintas crean ficheros distintos y git las une sin preguntar. Y la tabla
+# deja de comitearse (va en .gitignore): es un espejo del Project y se regenera
+# con un comando, asi que no hay nada que conciliar.
+RUTA_LOG = "progreso/log"
+
+# Mismo remedio, mismo motivo, otras tres secciones. `estado-actual.md` llevaba
+# dentro las decisiones vivas, las deudas y los issues, y las tres cambiaban en
+# CADA PR: era el segundo fichero que hacia conflictar todas las ramas (el
+# primero fue el tablero). Ahora cada item es su propio fichero y aqui se
+# ensamblan solo para leerlos de un tiron.
+CARPETAS_ENSAMBLADAS = (
+    ("decisiones", "Decisiones técnicas vivas", "Léelas antes de codificar."),
+    ("pendientes", "Pendientes: deudas, trampas e issues con contexto", ""),
+)
 
 CONSULTA = """
 query($owner: String!, $number: Int!) {
@@ -210,7 +242,9 @@ def _gh_graphql(consulta: str, variables: dict) -> dict | None:
     cmd = ["gh", "api", "graphql", "-f", f"query={consulta}"]
     for clave, valor in variables.items():
         cmd += ["-f", f"{clave}={valor}"]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    # encoding explicito: sin el, Windows decodifica en cp1252 y
+    # cualquier caracter fuera de esa tabla (el ⏸️ de T-016) revienta el script.
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     if r.returncode != 0:
         return None
     try:
@@ -268,7 +302,8 @@ def _items() -> list[dict]:
     r = subprocess.run(
         ["gh", "project", "item-list", str(PROJECT_NUMBER), "--owner", OWNER,
          "--format", "json", "--limit", str(LIMITE_ITEMS)],
-        capture_output=True, text=True,
+        # encoding explicito: ver _gh_graphql.
+        capture_output=True, text=True, encoding="utf-8",
     )
     if r.returncode != 0:
         raise ErrorDeConfiguracion(
@@ -410,55 +445,125 @@ def tablas(items: list[dict], titulo_proyecto: str, hoy: str) -> str:
 
 ESQUELETO = """# Tablero del Equipo
 
+> ⚠️ **Este archivo NO se comitea** (está en `.gitignore`) y se reescribe entero
+> cada vez que corres `python3 scripts/tablero.py --generar`. No edites aquí:
+> el estado se arregla en el Project; el log, las decisiones y los pendientes,
+> en sus carpetas de `progreso/` (un fichero por entrada).
+
 {bloque}
-## Log de reclamos (append-only, A MANO — esto no se genera nunca)
+{ensambladas}
+## Log de reclamos
 
-La tabla de arriba es un hecho mecánico y se regenera sola. Esto es lo otro: por
-qué una tarea se atascó, qué trampa costó un intento fallido, qué acuerdo se tomó
-al repartir un módulo. Ninguna automatización escribiría estas líneas, así que
-solo se **añaden** al final (evita conflictos de merge) y no se borran.
+Ensamblado desde `progreso/log/` (un fichero por entrada, ordenados por nombre).
+La tabla de arriba es un hecho mecánico; esto es lo otro: por qué una tarea se
+atascó, qué trampa costó un intento fallido, qué acuerdo se tomó al repartir un
+módulo. Ninguna automatización escribiría estas líneas.
 
-- {hoy} tablero generado por primera vez desde el Project
+**Para añadir una entrada, crea un fichero nuevo** — no toques los existentes:
+
+    progreso/log/AAAA-MM-DD-de-que-va.md
+
+{log}
 """
 
 
-def _partir(contenido: str, ruta: str) -> tuple[str, str]:
-    """(antes, despues) del bloque generado. PARA si no hay dónde escribir.
+def _carpeta_log(destino: Path | None = None) -> Path:
+    """El log vive JUNTO al tablero, no respecto al directorio actual.
 
-    Nunca se pisa un archivo que escribió una persona: es la misma leccion que
-    el instalador aprendio por las malas.
+    Atarlo al CWD hacia que generar en otra ruta (un tmpdir de los tests, por
+    ejemplo) ensamblara el log del repo real: el archivo escrito parecia bueno
+    y hablaba de otra cosa.
     """
-    if contenido.count(MARCA_INICIO) != 1 or contenido.count(MARCA_FIN) != 1:
-        raise ErrorDeConfiguracion(
-            f"{ruta} existe pero no tiene exactamente una marca de inicio y una de "
-            f"fin del bloque generado.\n"
-            f"   No se toca: podria haber ahi trabajo escrito a mano.\n"
-            f"   Para adoptarlo, envuelve la parte de TABLAS entre estas dos líneas\n"
-            f"   (el log se queda fuera, debajo de la marca de fin):\n"
-            f"     {MARCA_INICIO}\n     {MARCA_FIN}\n"
-            f"   O borra el archivo y vuelve a generar para empezar limpio."
-        )
-    antes, resto = contenido.split(MARCA_INICIO, 1)
-    _generado, despues = resto.split(MARCA_FIN, 1)
-    if despues.startswith("\n"):
-        despues = despues[1:]
-    return antes, despues
+    if destino is None:
+        return Path(RUTA_LOG)
+    return destino.parent / Path(RUTA_LOG).name
+
+
+def _entradas_del_log(destino: Path | None = None) -> list[Path]:
+    """Ficheros del log, ordenados por nombre (o sea, por fecha)."""
+    carpeta = _carpeta_log(destino)
+    if not carpeta.is_dir():
+        return []
+    return sorted(p for p in carpeta.glob("*.md") if p.is_file())
+
+
+def _log_ensamblado(destino: Path | None = None) -> str:
+    """El log entero como viñetas, para LEERLO de un tirón.
+
+    Se ensambla al generar en vez de vivir comiteado: asi cada entrada es un
+    fichero que nadie mas toca (imposible que conflicte) y aun asi se lee
+    seguido, que es como lo necesita quien llega nuevo o quien retoma.
+    """
+    piezas = []
+    for fichero in _entradas_del_log(destino):
+        lineas = fichero.read_text(encoding="utf-8").rstrip().splitlines()
+        if not lineas:
+            continue
+        piezas.append("\n".join([f"- {lineas[0]}", *lineas[1:]]))
+    return "\n".join(piezas) + "\n" if piezas else "_(todavía sin entradas)_\n"
+
+
+def _seccion_ensamblada(destino: Path, carpeta: str, titulo: str, nota: str) -> str:
+    """Una carpeta de items sueltos, pintada como seccion de vinetas."""
+    base = destino.parent / carpeta
+    ficheros = sorted(p for p in base.glob("*.md")) if base.is_dir() else []
+    piezas = []
+    for fichero in ficheros:
+        lineas = fichero.read_text(encoding="utf-8").rstrip().splitlines()
+        if lineas:
+            piezas.append("\n".join([f"- {lineas[0]}", *lineas[1:]]))
+    cuerpo = "\n".join(piezas) if piezas else "_(sin entradas)_"
+    cabecera = f"## {titulo}\n\n"
+    if nota:
+        cabecera += f"{nota}\n\n"
+    return f"{cabecera}{cuerpo}\n"
+
+
+def _ensambladas(destino: Path) -> str:
+    return "\n".join(
+        _seccion_ensamblada(destino, c, t, n) for c, t, n in CARPETAS_ENSAMBLADAS
+    )
+
+
+def _avisar_si_log_sin_migrar(destino: Path) -> None:
+    """Un tablero viejo trae el log DENTRO. Regenerar sin mas lo borraria."""
+    if not destino.exists() or _entradas_del_log(destino):
+        return
+    contenido = destino.read_text(encoding="utf-8")
+    if "## Log de reclamos" not in contenido:
+        return
+    cuerpo = contenido.split("## Log de reclamos", 1)[1]
+    if not re.search(r"^- \d{4}-\d{2}-\d{2} ", cuerpo, re.MULTILINE):
+        return
+    raise ErrorDeConfiguracion(
+        f"{destino} todavia lleva el log DENTRO y {_carpeta_log(destino)}/ esta vacio.\n"
+        f"   Regenerar ahora se llevaria por delante esas entradas, que nadie\n"
+        f"   puede reescribir: son el porque de lo que paso.\n"
+        f"   Migralas primero a {_carpeta_log(destino)}/AAAA-MM-DD-de-que-va.md (una por\n"
+        f"   fichero) y vuelve a intentarlo."
+    )
 
 
 def generar(ruta: str | None = None, hoy: str | None = None) -> str:
-    """Reescribe SOLO el bloque de tablas. Devuelve la ruta escrita."""
+    """Reescribe el tablero ENTERO (tabla + log ensamblado). Devuelve la ruta.
+
+    Ya no se conserva nada del archivo anterior: no se comitea y no tiene
+    partes escritas a mano. Lo unico irrecuperable es el log, y ese vive
+    ahora en ficheros aparte.
+    """
     destino = Path(ruta or RUTA_TABLERO)
     hoy = hoy or date.today().isoformat()
+    _avisar_si_log_sin_migrar(destino)
+
     ids = resolver()  # valida configuracion y da el titulo del Project
     bloque = tablas(_items(), ids["titulo"] or f"{OWNER}/{PROJECT_NUMBER}", hoy)
 
-    if destino.exists():
-        antes, despues = _partir(destino.read_text(encoding="utf-8"), str(destino))
-        nuevo = f"{antes}{bloque}{despues}"
-    else:
-        destino.parent.mkdir(parents=True, exist_ok=True)
-        nuevo = ESQUELETO.format(bloque=bloque, hoy=hoy)
-
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    nuevo = ESQUELETO.format(
+        bloque=bloque,
+        log=_log_ensamblado(destino),
+        ensambladas=_ensambladas(destino),
+    )
     destino.write_text(nuevo, encoding="utf-8", newline="\n")
 
     # Que write_text no lance no es que el archivo diga lo que crees.
@@ -483,8 +588,10 @@ def main(argv: list[str]) -> int:
 
         if argv and argv[0] == "--generar":
             escrito = generar(argv[1] if len(argv) > 1 else None)
+            entradas = len(_entradas_del_log(Path(escrito)))
             print(f"OK  {escrito} regenerado desde el Project "
-                  f"(el log de reclamos no se ha tocado)")
+                  f"(+ {entradas} entrada(s) de {RUTA_LOG}/)")
+            print("    Recuerda: este archivo NO se comitea; se genera cuando lo necesites.")
             return 0
 
         datos = resolver()
