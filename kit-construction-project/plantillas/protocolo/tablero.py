@@ -592,6 +592,18 @@ def main(argv: list[str]) -> int:
             print(f"OK  {escrito} regenerado desde el Project "
                   f"(+ {entradas} entrada(s) de {RUTA_LOG}/)")
             print("    Recuerda: este archivo NO se comitea; se genera cuando lo necesites.")
+            # El peso se imprime para que este DELANTE de quien va a abrirlo.
+            # Este archivo es para leerlo una persona: cargarlo en el contexto de
+            # una sesion cuesta lo que dice la cifra, y la cifra CRECE con el
+            # Project (medido en un proyecto de ~90 tareas: ~40.700 tokens, el
+            # 20% de una ventana de 200k). Un agente que necesite el estado tiene
+            # el paso 3 de /que-toca, que cuesta dos ordenes de magnitud menos.
+            # Va aqui y no en la prosa de una skill porque la prosa envejece y el
+            # fichero no para de crecer: el script no puede mentir sobre su
+            # propio tamano.
+            chars = len(Path(escrito).read_text(encoding="utf-8"))
+            print(f"    Pesa {chars:,} chars (~{round(chars / 3.6):,} tokens): "
+                  f"para leerlo TU, no para cargarlo en contexto.")
             return 0
 
         datos = resolver()

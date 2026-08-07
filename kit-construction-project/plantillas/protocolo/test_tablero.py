@@ -580,7 +580,7 @@ def _():
     assert kwargs_vistos and kwargs_vistos[0].get("encoding") == "utf-8", kwargs_vistos
 
 
-@caso("main() --generar cuenta las entradas y recuerda que NO se comitea")
+@caso("main() --generar cuenta las entradas, recuerda que NO se comitea Y dice lo que pesa")
 def _():
     import io
     import contextlib
@@ -593,10 +593,18 @@ def _():
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             codigo = mod.main(["--generar", str(ruta)])
+        # Dentro del with: al salir, el temporal se borra y ya no se puede leer.
+        peso = len(ruta.read_text(encoding="utf-8"))
     salida = buf.getvalue()
     assert codigo == 0, codigo
     assert "1 entrada(s)" in salida, salida
     assert "NO se comitea" in salida, salida
+    # El peso es el mecanismo que evita que un agente se cargue el tablero entero
+    # al contexto. Se comprueba contra la longitud REAL de lo escrito, no contra
+    # una constante: asi el print no puede quedarse mintiendo si el formato cambia,
+    # y no puede desaparecer sin que esto se ponga rojo.
+    assert f"Pesa {peso:,} chars" in salida, salida
+    assert "no para cargarlo en contexto" in salida, salida
 
 
 @caso("main() --generar que falla: avisa de que el archivo es de ANTES")

@@ -39,6 +39,18 @@
 - **Regla de densidad:** este CLAUDE.md solo gana líneas si otro archivo las pierde
   — es un MAPA, no una enciclopedia. Lo que madure baja a `docs/` y deja un puntero.
   Se lee entero en cada sesión: cada línea de más es contexto que se paga siempre.
+  **Pero el criterio operativo es «que no crezca», no «adelgázalo»:** con el
+  proyecto rodado, este fichero acaba siendo el más citado del repo —ADRs,
+  backlog, handoffs y hasta comentarios de código apuntan a él como
+  `CLAUDE.md § Seccion`, y algunos **por número de regla**—. Antes de mover algo
+  fuera, **censa quién apunta dentro** (`grep -rn "CLAUDE.md §"`) y no toques un
+  nombre de sección ni una numeración que alguien cite: no lo vigila ningún
+  compilador. Medido en un proyecto real: 43 referencias, y el recorte disponible
+  sin romper ninguna era del 2,8%.
+- **Lo que el compilador vigila no se copia en prosa:** paletas de color, rutas,
+  constantes, comandos. La copia deriva y nadie se entera — en el proyecto donde
+  se midió lo anterior, la paleta de este fichero omitía media paleta y mandaba a
+  un fichero de configuración que ya no existía. Se apunta al fichero real.
 - **El porqué en el punto de uso:** toda decisión no-obvia en código referencia su
   issue o ADR en el comentario (`T-nnn/ADR-nnnn`). Regla de PR. Es la diferencia
   entre leer una función y adivinar, o saltar directo a la historia completa.
