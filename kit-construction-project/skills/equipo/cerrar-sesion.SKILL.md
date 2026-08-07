@@ -165,6 +165,11 @@ se declara siempre, aunque solo se rehaga en las zonas sensibles.
    python3 scripts/tablero.py --generar   # tabla + log ensamblado, solo en local
    ```
 
+   ⛔ **Regenerarlo es gratis; ABRIRLO no.** El fichero crece con el Project: en un
+   proyecto real de ~90 tareas pesaba **~40.700 tokens**, el 20% de una ventana de
+   200k. Es para leerlo una persona; el estado que necesitas para cerrar ya lo
+   tienes de los puntos 1 y 2. Por eso `--generar` imprime su peso al terminar.
+
 4. **Entrada de log: OPCIONAL.** Solo si hay algo que el Project no pueda contar —
    por qué se atascó, qué trampa costó un intento fallido, qué acuerdo se tomó. Un
    cierre normal NO lleva entrada de log: `git log` y el PR ya lo cuentan.
