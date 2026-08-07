@@ -36,7 +36,11 @@ quedarse en fábrica dejaría fuera justo las guardas que a esos proyectos les
 faltan — `deriva_kit.py` mide que a los dos de SUNAT les falta el 40% del kit.
 
 5 casos nuevos (44 en la suite; el README decía 37 desde el 07-27). Verificado
-que muerden: con el `instalar.sh` anterior fallan.
+bajando `instalar.sh` a la versión anterior: **fallan 4 de los 5**. El quinto
+—«lo que le faltaba del kit sí llega»— pasa también con el viejo, porque en modo
+instalación limpia se copia todo igual: es una precondición del escenario, no una
+mordida, y se dice para no contarlo como cobertura que no da.
+
 ## 2026-08-06 (2) — Nadie podía preguntar en qué se había desviado un proyecto
 
 El kit viaja por copia y a partir de ahí las dos copias evolucionan solas. Ha
