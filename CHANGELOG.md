@@ -3,6 +3,42 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-06 — `VERSION` decía una cosa y el kit traía otra
+
+Los dos últimos cambios grandes entraron **sin tocar `VERSION` y sin escribir
+aquí**: `ebfab29` (#15), que trajo de BarberCrow la arquitectura del protocolo
+—el log en un fichero por entrada, el tablero que ya no se comitea, el chequeo de
+issues que están fuera del Project— y `a60ef67` (#16), que trajo el ahorro de
+contexto medido allí: **64.051 tokens por ciclo de tarea**, el 53% del
+presupuesto útil de una sesión, casi todo en el `--jq` del `item-list` de
+`/que-toca` (51.807 de esos 64.051).
+
+`VERSION` quedó en `2026-08-04` sobre un kit que ya no era el del 04. Sube a
+**`2026-08-06`**, la fecha del contenido portado — que es la convención que ya
+usaba el 04, no la fecha del merge.
+
+**Qué se rompía, con precisión, porque es menos de lo que parece:** la
+actualización **no** estaba rota. `instalar.sh` compara **hash a hash** con
+`git hash-object`, y la igualdad de versión (línea 68) solo imprime un aviso
+antes de seguir comparando; un proyecto que actualizara habría recibido los
+ficheros nuevos igual. Lo que estaba roto es la **etiqueta**: el manifiesto graba
+`# kit=<version>` en cada destino, y ese sello es el único sitio donde consta qué
+trae un proyecto instalado. Con el sello congelado, la respuesta a «¿este proyecto
+tiene el arreglo de los 51k tokens?» pasa a ser «mira los hashes uno a uno»,
+que es justo lo que el sello existe para evitar.
+
+Es el mismo patrón que las tres entradas del 07-27: **una señal que no se
+actualiza no es una señal, y se aprende a no mirarla.**
+
+Queda una decisión, no un pendiente disfrazado: o el bump entra en el propio port
+como paso obligatorio, o `VERSION` se deriva del hash del manifiesto y deja de
+poder mentir. Lo segundo es más trabajo y no se hace hoy.
+
+**No se toca `kit-construction-project/.manifiesto`**, cuyo encabezado dice
+`# kit=2026-07-26`: ese fichero es la foto de una instalación pasada (la de
+barber-king), no la versión del catálogo. Cambiarlo sería falsear el registro que
+va a servir para engancharlo.
+
 ## 2026-07-27 (3) — Una lista que solo sabe decir "queda trabajo" no informa
 
 El grep de placeholders que imprime `instalar.sh` barría `scripts/` entero, donde
