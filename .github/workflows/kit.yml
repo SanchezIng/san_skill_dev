@@ -26,6 +26,9 @@ jobs:
       - name: Instalador (instalar / configurar / actualizar / reconciliar)
         run: sh kit-construction-project/test_instalar.sh
 
+      - name: Detector de deriva kit-proyecto
+        run: python3 kit-construction-project/test_deriva_kit.py
+
       - name: Guardas de deriva doc-realidad
         run: python3 kit-construction-project/plantillas/ci/test_docs_check.py
 

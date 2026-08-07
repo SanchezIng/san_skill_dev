@@ -37,6 +37,47 @@ faltan — `deriva_kit.py` mide que a los dos de SUNAT les falta el 40% del kit.
 
 5 casos nuevos (44 en la suite; el README decía 37 desde el 07-27). Verificado
 que muerden: con el `instalar.sh` anterior fallan.
+## 2026-08-06 (2) — Nadie podía preguntar en qué se había desviado un proyecto
+
+El kit viaja por copia y a partir de ahí las dos copias evolucionan solas. Ha
+costado dos veces: el 2026-07-29 barber-king llevaba una semana divergiendo en 15
+archivos / 1.157 líneas y se descubrió de casualidad; el 2026-08-06, tres días
+después de un port que se creía completo, `plantillas/hooks/arranque.sh` seguía
+detectando hooks con `grep pre-push` mientras el proyecto ya leía los tipos del
+`.pre-commit-config.yaml`. Las dos veces el fallo no fue portar mal: fue **no
+poder preguntar**.
+
+`deriva_kit.py` responde en segundos, y su primera ejecución sobre los tres
+proyectos reales dice lo que nadie sabía:
+
+| Proyecto | `=` | `~` | `!` divergentes | `-` ausentes |
+|---|---:|---:|---:|---:|
+| barber-king | 21 | 1 | 17 | 1 |
+| api-sunat-scr | 10 | 0 | 13 | **17** |
+| portal-web-api-sunat | 10 | 0 | 15 | **15** |
+
+Los dos de SUNAT **no tienen el 40% del kit**: les faltan `tablero.py`,
+`audit_check.py`, `deriva_ramas.py`, `proteccion_main.py`, sus tests y el hook
+del guardián de seguridad. Llevan ahí desde que se instalaron.
+
+**Lo que hace que el informe sirva: separar `~` de `!`.** El kit escribe
+`{{OWNER}}` donde el proyecto tiene `SanchezIng`, y contar eso como diferencia
+pondría en rojo permanente justo las piezas que más importan —las 3 skills,
+`tablero.py`, `audit_check.py`—. Una línea que solo difiere en la posición de un
+placeholder se clasifica como configuración, no como deriva.
+
+**Y no duplica el mapa de archivos:** instala el kit en un temporal y lee el
+manifiesto que deja el propio instalador. Un detector de deriva que copia el mapa
+del instalador acaba derivando él mismo, que sería el chiste completo.
+
+No es una guarda de CI y el README lo dice: un proyecto vivo siempre tendrá
+divergencia legítima. Sale 1 si la hay para poder encadenarlo, pero se ejecuta a
+mano — antes de portar, después de portar, y antes de creerse que algo está
+sincronizado.
+
+19 casos nuevos en `test_deriva_kit.py`, en el CI. Uno mordió durante el
+desarrollo: un workflow que el equipo activó renombrándolo salía como idéntico
+pero el informe se callaba con qué nombre lo había encontrado.
 
 ## 2026-08-06 — `VERSION` decía una cosa y el kit traía otra
 
