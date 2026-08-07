@@ -74,6 +74,50 @@ sobre una lista truncada.
 > lado seguro. Por eso el aviso de arriba sigue haciendo falta, y por eso el
 > orden importa — un límite que miente en silencio es peor que un error.
 
+**Segunda comprobación, y falla al revés que la anterior:** que un issue esté abierto
+no significa que esté en el Project. `gh issue create` **no** lo añade, así que una
+tarea puede existir en Issues y ser invisible aquí — este paso solo mira el Project.
+Una lista truncada te oculta tareas *de la lista*; esto te oculta tareas *que nunca
+entraron en la lista*, y no hay síntoma: la búsqueda parece funcionar.
+
+```bash
+# Issues abiertos que NO estan en el Project. Vacio = ninguno fuera.
+comm -13 \
+  <(gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 500 --jq '.items[].content.number' | sort) \
+  <(gh issue list --state open --limit 500 --json number --jq '.[].number' | sort)
+```
+
+Si sale algún número, **añádelo antes de elegir tarea** — son tareas reales que nadie
+puede reclamar. Son tres pasos, no uno, y los dos últimos se olvidan porque `item-add`
+no protesta:
+
+```bash
+gh project item-add {{PROJECT_NUMBER}} --owner {{OWNER}} --url <url-del-issue>
+
+gh issue edit <N> --add-label "modulo:<X>"      # si el tablero saca el modulo de una
+                                                # LABEL, no la deduce del titulo
+
+# item-add NO devuelve el id del item; hay que buscarlo por el numero de issue:
+ITEM_ID=$(gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 500 \
+  --jq ".items[]|select(.content.number==<N>)|.id")
+python3 scripts/tablero.py --mover "$ITEM_ID" "Disponible"   # o "Bloqueada" si algo la frena
+```
+
+**`item-add` no imprime nada y deja el `Status` en `null`.** Un item sin estado no
+cae en ninguna columna: lo has "añadido" y sigue sin verse. Por eso el tercer paso no
+es opcional. Confirmar que no queda ninguno suelto:
+
+```bash
+gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 500 \
+  --jq '[.items[]|select(.status==null)|.content.number]'   # debe salir []
+```
+
+> Caso real (2026-07-29): **seis** issues abiertos de tres personas estaban fuera del
+> Project, incluidas una deuda de RLS y el rate limiting de OWASP A04. Ninguna era
+> reclamable, y nadie lo notó porque el paso 3 devolvía resultados con normalidad.
+> Añadir el issue al Project es parte de crearlo; esta comprobación caza al que se
+> olvide.
+
 Elegir la de **menor número** entre las `Disponible` sin assignee (o del módulo que el
 dev prefiera). Anotar el `id` del item (campo `id` donde `content.number == N`).
 
@@ -112,38 +156,50 @@ git checkout -b {{PREFIJO_RAMA}}
 
 ## Paso 6 — Espejo en el repo (en la rama, NO en main)
 
-La tabla **no se escribe a mano**: se regenera desde el Project, que ya sabe lo que
-acabas de reclamar. Lo único que teclea una persona es la línea del log, y solo si
-tiene algo que contar que el Project no diga (un acuerdo de frontera, una trampa
-que te costó el intento anterior):
+**La tabla NO se comitea** (va en `.gitignore`): es un espejo del Project y se
+regenera cuando la quieras ver. Lo único que se comitea es lo que teclea una
+persona, y solo si tiene algo que contar que el Project no diga (un acuerdo de
+frontera, una trampa que te costó el intento anterior): **una entrada nueva del
+log, en su propio fichero.**
 
 ```bash
-python3 scripts/tablero.py --generar
-# opcional, al final del archivo (append-only, NUNCA se genera):
-#   - YYYY-MM-DD {dev} reclama T-nnn (#N) — {lo que el Project no cuenta}
-git add progreso/tablero-equipo.md
+# Opcional, solo si hay algo que contar. UN FICHERO NUEVO — no toques los de nadie:
+cat > progreso/log/$(date +%F)-reclamo-t-nnn.md <<'EOF'
+YYYY-MM-DD {dev} reclama T-nnn (#N) — {lo que el Project no cuenta}
+EOF
+git add progreso/log/
 git commit -m "chore(tablero): reclamar T-nnn"
+
+# Para VERLO (tabla + log ensamblado). No genera nada que comitear:
+python3 scripts/tablero.py --generar
 ```
 
-Si `--generar` falla, **no arregles la tabla a mano**: el archivo se queda como estaba
-y lo dice. Se arregla en el Project y se vuelve a generar. La tabla escrita a mano es
-justo lo que produjo tres derivas en dos días de uso real.
+**Por qué un fichero por entrada:** antes el log vivía dentro del tablero y todos
+añadían al final del mismo archivo. Eso no evita conflictos, los garantiza — en el
+proyecto piloto, con 3 PRs abiertos el mismo día, los 3 chocaban ahí. Ficheros
+distintos los hacen imposibles: git une sin preguntar.
+
+Si `--generar` falla, **no escribas la tabla a mano**: se arregla en el Project y se
+vuelve a generar. La tabla escrita a mano es justo lo que produjo tres derivas en
+dos días de uso real.
 
 **Por qué no va directo a main:** el candado ya se echó en el paso 4. El assignee y el
 estado del Project son visibles para todo el equipo **al instante**, y son la verdad
-sobre quién tiene qué. El tablero del repo es un resumen de eso: si llegara tarde, no
-pasa nada, porque nadie decide mirándolo. Mandarlo a `main` obligaría a dejar la rama
-sin proteger para siempre — precio altísimo por sincronizar un resumen.
+sobre quién tiene qué. La entrada del log es contexto, no estado: si llega tarde no
+pasa nada, porque nadie decide mirándola. Mandarla a `main` obligaría a dejar la rama
+sin proteger para siempre — precio altísimo por sincronizar una nota.
 
 > **Excepción — proyecto SIN GitHub Project:** si el tablero markdown es el único
 > registro (no hay Issues ni Project), entonces **el tablero SÍ es el candado**, y
 > ahí la tabla se escribe a mano porque no hay de dónde generarla (`--generar` no
-> aplica: no existe la fuente). Hay que publicarlo antes de codear y, por tanto,
-> **antes del paso 5** — estando todavía en `main`, no en la rama (desde la rama,
-> `git push origin main` empuja el `main` local, que no tiene el commit):
+> aplica: no existe la fuente). En ese modo **el tablero se comitea** — hay que
+> quitarlo del `.gitignore`, porque ahí sí es la fuente de verdad y no un espejo.
+> Hay que publicarlo antes de codear y, por tanto, **antes del paso 5** — estando
+> todavía en `main`, no en la rama (desde la rama, `git push origin main` empuja el
+> `main` local, que no tiene el commit):
 >
 > ```bash
-> git add progreso/tablero-equipo.md
+> git add progreso/tablero-equipo.md   # requiere haberlo sacado del .gitignore
 > git commit -m "chore(tablero): reclamar T-nnn"
 > git push origin main          # y solo despues, el paso 5 crea la rama
 > ```

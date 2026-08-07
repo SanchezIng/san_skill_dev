@@ -79,10 +79,41 @@ SALIDA="$(correr)"
 comprobar "workflow desconocido: lo nombra sin inventar prerrequisitos" \
     "$(printf '%s' "$SALIDA" | grep -q 'lo-que-sea.yml' && echo 0 || echo 1)"
 
+# --- Hook pre-push declarado pero NO instalado: avisa -------------------------
+# Es el caso que motiva el aviso: .git/hooks no viaja con git pull, asi que un
+# clon anterior al hook se queda sin la guarda y nada se lo dice.
+limpiar
+printf 'repos:\n  - repo: local\n    hooks:\n      - id: ci-local\n        stages: [pre-push]\n' > "$TMP/.pre-commit-config.yaml"
+mkdir -p "$TMP/.git/hooks"
+SALIDA="$(correr)"; CODIGO=$?
+comprobar "pre-push declarado y NO instalado: AVISA" \
+    "$(printf '%s' "$SALIDA" | grep -qi 'falta el hook pre-push' && echo 0 || echo 1)"
+comprobar "dice el comando exacto para instalarlo" \
+    "$(printf '%s' "$SALIDA" | grep -q 'pre-commit install' && echo 0 || echo 1)"
+comprobar "exit 0 (avisar no es romper el arranque)" "$CODIGO"
+
+# --- Ya instalado: silencio (si no, se vuelve ruido de fondo) ----------------
+limpiar
+printf 'repos:\n  - repo: local\n    hooks:\n      - id: ci-local\n        stages: [pre-push]\n' > "$TMP/.pre-commit-config.yaml"
+mkdir -p "$TMP/.git/hooks"; : > "$TMP/.git/hooks/pre-push"
+SALIDA="$(correr)"
+comprobar "TRAS INSTALARLO: el aviso desaparece solo" \
+    "$(printf '%s' "$SALIDA" | grep -qi 'falta el hook pre-push' && echo 1 || echo 0)"
+
+# --- Config sin stage pre-push: no se inventa un aviso -----------------------
+limpiar
+printf 'repos:\n  - repo: local\n    hooks:\n      - id: algo\n' > "$TMP/.pre-commit-config.yaml"
+mkdir -p "$TMP/.git/hooks"
+SALIDA="$(correr)"
+comprobar "sin stage pre-push declarado: NO avisa de nada" \
+    "$(printf '%s' "$SALIDA" | grep -qi 'falta el hook pre-push' && echo 1 || echo 0)"
+
 # --- Sin git y sin nada: sigue sin romperse ----------------------------------
 rm -rf "$TMP"; mkdir -p "$TMP"
 SALIDA="$(correr)"; CODIGO=$?
 comprobar "directorio pelado (sin .github, sin progreso): exit 0" "$CODIGO"
+comprobar "sin .pre-commit-config.yaml: tampoco avisa del pre-push" \
+    "$(printf '%s' "$SALIDA" | grep -qi 'falta el hook pre-push' && echo 1 || echo 0)"
 
 echo
 if [ "$FALLIDOS" -eq 0 ]; then

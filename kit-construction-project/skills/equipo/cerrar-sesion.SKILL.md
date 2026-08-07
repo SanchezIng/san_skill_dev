@@ -1,6 +1,6 @@
 ---
 name: equipo-cerrar-sesion
-description: Checklist ejecutable de cierre de sesión/tarea del equipo. Úsala SIEMPRE que el dev diga "cierra la sesión", "cerremos", "termina la tarea", "haz el cierre", o cuando una subfase/tarea quede completa, o antes de abandonar una sesión larga. Verifica tests y calidad, commitea, actualiza estado-actual + handoff + tablero, abre/actualiza el PR y mueve el item del Project. Se NIEGA a cerrar con tests rojos.
+description: Checklist ejecutable de cierre de sesión/tarea del equipo. Úsala SIEMPRE que el dev diga "cierra la sesión", "cerremos", "termina la tarea", "haz el cierre", o cuando una subfase/tarea quede completa, o antes de abandonar una sesión larga. Verifica tests y calidad, commitea, mete el cierre documental EN el PR de la tarea y mueve el item del Project. Se NIEGA a cerrar con tests rojos.
 ---
 
 # /cerrar-sesion — Cierre disciplinado
@@ -19,20 +19,52 @@ fallo como bloqueo explícito en el handoff y se avisa al dev — nunca cierre s
 {{CMD_ESTATICO}}
 ```
 
+La suite **COMPLETA**, una sola vez, antes de abrir o actualizar el PR. Si el
+proyecto tiene un modo rápido enganchado al `git push`, lo que ese modo omite no
+se perdona: se aplaza y se paga aquí. Empujar varias veces por cierre y pagar la
+suite entera en cada push es el grueso de la lentitud que este paso evita.
+
+**No pongas la rama al día para que te revisen.** Al día hace falta para
+**mergear**, no antes: se revisa el diff contra su base. Perseguir a la rama base
+mientras esperas review reinicia la verificación, y mientras tanto la base se
+vuelve a mover: es una carrera que no se gana, y encima invalida la review que ya
+te hicieron. Rebase al final, una vez.
+
 - Tests rojos → arreglar antes de seguir (o declarar el bloqueo, ver regla dura).
 - Si el cambio toca {{AREAS_CRITICAS}}: correr también `/verificar` (smoke E2E real).
 
-**Checkpoint de seguridad (segunda red).** Si la sesión tocó código y
-**`secure-coding-guard` no se aplicó**, aplícala AHORA antes de cerrar, y anota
-su resumen (qué se aseguró, hallazgos por severidad, pendientes) en el handoff.
+**ROJO PRIMERO.** Si algún test de esta sesión cierra un bug, tienes que haberlo
+visto **fallar** contra el código sin arreglar, y pegas esa salida roja en el PR.
+Un test verde no demuestra que guarde nada: en el proyecto piloto aparecieron dos
+que se creían protección y no lo eran (uno con 2 de 3 casos que seguían verdes al
+mutar la implementación; un E2E que pasaba igual con el bug reintroducido). Un
+test que nunca se vio rojo convierte "sin probar" en "creído probado".
+
+**Si tocaste una frontera compartida**, antes de dar por buenas las docs: busca
+dónde se **ENSEÑA** ese símbolo, no solo dónde se usa. El compilador vigila el
+código; la prosa no la vigila nadie, y en el piloto cambiar una función de acceso
+a datos dejó nueve documentos enseñando el camino viejo.
+
+**Checkpoint de seguridad — proporcional, no un muro al final.**
+
+La seguridad se mira **mientras se escribe el código**, y para eso está el hook
+`PreToolUse`, que la recuerda en cada edición. Aquí, al cerrar, ya no se rehace:
+revisar al final es cuando corregir cuesta lo máximo, y los devs reportaron
+justo eso — *"cuando terminé la tarea hizo revisión y me mandó a corregir lo
+que ya estaba hecho"*. Una red que llega tarde no protege más: solo cuesta más.
+
+- **Si el cambio toca una zona sensible** —{{AREAS_CRITICAS}}, o donde vivan la
+  autenticación y el acceso a datos— **y `secure-coding-guard` no se aplicó:
+  aplícala ahora.** Aquí sí para el cierre: el coste de encontrarlo después es
+  mayor que el de rehacerlo hoy.
+- **En cualquier otro caso, no la rehagas: decláralo.** Una línea en el PR —
+  `secure-coding-guard: aplicada` / `no aplicada` — y el revisor decide si mirar
+  con lupa. Ocultarlo sería lo grave; llegar tarde a rehacerlo, solo caro.
 
 No des por hecho que ya se hizo: la skill se salta con facilidad cuando el
 trabajo **no entró por `/que-toca`** — mergear un PR aprobado, resolver
-conflictos, revisar código ajeno, un hotfix, o retomar tras una pausa. En esos
-casos nadie pasó por el paso que la exige. Haber hecho comprobaciones de
-seguridad sueltas sobre la marcha **no cuenta como haberla aplicado**: sus
-`references/` existen para no depender de qué se le ocurra mirar a quien esté
-al mando.
+conflictos, revisar código ajeno, un hotfix, o retomar tras una pausa. Por eso
+se declara siempre, aunque solo se rehaga en las zonas sensibles.
 
 ## Paso 2 — Commit y PR
 
@@ -47,36 +79,106 @@ al mando.
 4. Si el PR toca algún archivo de la lista "no tocar sin avisar" del CLAUDE.md
    (imagen/contenedores, workflows de CI, fronteras entre módulos) → destacarlo en el body.
 
-## Paso 3 — Documentar el estado
+## Paso 3 — El cierre documental va EN ESTE PR
 
-1. **`progreso/estado-actual.md`**: lo que **solo** se sabe por haber trabajado —
-   decisiones vivas, deudas anotadas, convenciones que cambiaron — y la cabecera de
-   "Última actualización". **No lleva tabla de estado por módulo:** eso está en el
-   tablero, que se genera. Una instantánea copiada a mano de otra instantánea a mano
-   es la que produjo tres derivas en dos días.
-2. **Handoff** `progreso/fase-{n}.{m}-{modulo}.md` (o el del área): qué quedó hecho,
-   qué quedó a medias, **trampas descubiertas**, y el siguiente paso concreto.
-   TODOs pendientes → SIEMPRE al handoff (y si sobreviven a la subfase → abrir issue).
-3. Estos dos archivos van **en el PR** (documentan el cambio), no directo a main.
+1. **Pregúntate qué prosa deja caducada tu merge** —hoja de ruta, backlog, handoffs
+   de otros, pendientes— y actualízala **en el MISMO PR**. El «PR de cierre de DoD
+   post-merge» no existe: en el piloto hubo seis en dos días, cada uno con su rama,
+   su review y su merge, solo para arreglar documentación que el PR original pudo
+   dejar bien — la mitad del tráfico de proceso de esa jornada. Post-merge quedan
+   solo los gestos que no existen antes del merge: tag si toca, tarjeta, desbloqueos.
+2. Lo demás es **OPCIONAL, no ritual**:
+   - Una decisión que afecta a quien venga detrás → un fichero **nuevo** en
+     `progreso/decisiones/`. Una deuda o trampa con contexto → `progreso/pendientes/`.
+     Nunca editar los existentes: **fichero por item = conflictos imposibles.**
+   - **Handoff** `progreso/fase-{n}.{m}-{modulo}.md` **solo si dejas el módulo a
+     medias** o con trampas que contar. Módulo terminado y limpio = sin handoff:
+     el issue y el PR ya cuentan la historia.
+   - `progreso/estado-actual.md` casi nunca se toca: solo si cambió algo estable
+     (una fase entera, una trampa de arranque nueva). **No lleva tabla de estado
+     por módulo** ni decisiones sueltas: eso vive en el Project y en los ficheros
+     de arriba. Tenerlo todo aquí lo convertía en el archivo que tocaban TODAS las
+     ramas, y por tanto en el segundo motivo estructural de conflicto tras el
+     tablero.
+3. **TODOs que sobreviven a la subfase → issue en el Project** (paso 4.2), no un
+   párrafo en un fichero. Un pendiente sin issue es invisible para `/que-toca`.
 
 ## Paso 4 — Tablero y Project
 
 1. **El estado real se mueve en el Project** (IDs en `/que-toca`): a **Review** al
-   abrir el PR; a **Terminado** al mergear. Poner en **Disponible** los items cuyas
-   dependencias quedaron cumplidas ("Depende de" en cada issue). Esto es lo que ve el
-   equipo y lo que leen las skills: hazlo aunque no toques el tablero.
-2. `progreso/tablero-equipo.md`: **regenerarlo, no editarlo** — el Project ya tiene el
-   estado nuevo del punto 1, así que la tabla sale de ahí:
+   abrir el PR; a **Terminado** al mergear **el ÚLTIMO PR de la tarea**. Poner en
+   **Disponible** los items cuyas dependencias quedaron cumplidas ("Depende de" en
+   cada issue). Esto es lo que ve el equipo y lo que leen las skills: hazlo aunque no
+   toques el tablero.
+
+   **Si este cierre deja trabajo post-merge, la tarjeta se queda en Review.** Handoff,
+   entrada de log o cierre de documentación en un PR aparte cuentan: mientras quede
+   uno abierto, la tarea no está Terminada. Y en el otro sentido, **cerrar el issue
+   no es mergear el PR**: son dos gestos y el primero no implica el segundo.
+
+   > **Por qué, si el trabajo "ya está hecho":** el Project sigue *issues*, no PRs —
+   > los items son los issues del repo, ninguno es un PR. Un PR esperando revisión
+   > **no sale en la columna de nadie**, así que en cuanto mueves la tarjeta a
+   > Terminado ese PR se vuelve invisible y se para sin que nadie sea culpable (en el
+   > piloto, un día parado). Al revés muerde peor: un issue cerrado con su PR sin
+   > mergear es el tablero diciendo «hecho» con el código fuera de la rama principal —
+   > y si le pasa a una tarea de seguridad, el equipo cree tener desplegada una
+   > mitigación que no existe.
+   >
+   > Sí, la columna Review se alarga. Es el precio, y es justo lo que quieres ver.
+2. **Los issues que abras en este cierre también van al Project — crearlos no basta.**
+   `gh issue create` no los añade: se quedan en Issues, invisibles para el tablero y
+   para `/que-toca`, que busca tareas Disponibles **en el Project**. Son tres pasos, y
+   los dos últimos se olvidan porque `item-add` no protesta: no imprime nada y deja el
+   `Status` en **`null`**, y un item sin estado no cae en ninguna columna.
 
    ```bash
-   python3 scripts/tablero.py --generar
+   gh project item-add {{PROJECT_NUMBER}} --owner {{OWNER}} --url <url-del-issue>
+
+   gh issue edit <N> --add-label "modulo:<X>"   # si el tablero saca el modulo de una
+                                                # LABEL, no lo deduce del titulo
+
+   # item-add NO devuelve el id del item; hay que buscarlo por el numero de issue:
+   ITEM_ID=$(gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 500 \
+     --jq ".items[]|select(.content.number==<N>)|.id")
+   python3 scripts/tablero.py --mover "$ITEM_ID" "Disponible"   # o "Bloqueada" si algo la frena
    ```
 
-   Añade línea al log (`- YYYY-MM-DD {dev} abre PR #N (T-nnn/#issue) — {resumen}`)
-   **solo si aporta algo que el Project no dice**: por qué se atascó, qué trampa
-   costó un intento fallido. Eso no lo escribe ninguna automatización. Todo ello va
-   **en la rama de la tarea, dentro del PR** — es un espejo del Project, no una fuente
-   de verdad, así que no justifica saltarse la protección de `main`.
+   Si además es una **tarea** (no un aviso al equipo), su entrada en el backlog con
+   `T-nnn`, módulo, `Depende de:` y criterios de aceptación — y que el título del issue
+   empiece por `T-nnn ·`, o el tablero lo muestra sin número y no se puede cruzar con
+   el backlog.
+
+   **Antes de darlo por hecho, mira si depende de algo o si bloquea a alguien.** Marcar
+   `Disponible` es afirmar que nada la frena: una tarea que en realidad espera a otra le
+   cuesta una sesión al que la coja. Y si desbloquea o gatea a otra, escríbelo en el
+   `Depende de:` de **esa** otra, que es donde alguien lo va a leer.
+
+   > Caso real: seis issues abiertos de tres personas estaban fuera del Project,
+   > incluidas una deuda de RLS y el rate limiting de OWASP A04. Ninguna era
+   > reclamable. `/que-toca` (paso 3) lleva la comprobación de deriva que lo caza.
+
+3. **El tablero NO se comitea** (está en `.gitignore`): es un espejo del Project y ya
+   quedó actualizado con los puntos 1 y 2. Regenéralo cuando quieras verlo:
+
+   ```bash
+   python3 scripts/tablero.py --generar   # tabla + log ensamblado, solo en local
+   ```
+
+4. **Entrada de log: OPCIONAL.** Solo si hay algo que el Project no pueda contar —
+   por qué se atascó, qué trampa costó un intento fallido, qué acuerdo se tomó. Un
+   cierre normal NO lleva entrada de log: `git log` y el PR ya lo cuentan.
+
+   ```bash
+   cat > progreso/log/$(date +%F)-pr-N-t-nnn.md <<'EOF'
+   YYYY-MM-DD {dev} abre PR #N (T-nnn/#issue) — {lo que el Project no cuenta}
+   EOF
+   ```
+
+   **Si la escribes: un fichero nuevo, nunca editar los existentes.** Así dos ramas
+   que escriben a la vez no pueden conflictar. Va **en la rama, dentro del PR** — es
+   contexto, no estado, así que no justifica saltarse la protección de la rama
+   principal.
 
 > **Excepción — proyecto SIN GitHub Project:** el tablero es el único registro, la
 > tabla se mantiene a mano (no hay de dónde generarla) y sí va directo a `main`
