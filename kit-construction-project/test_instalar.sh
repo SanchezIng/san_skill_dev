@@ -219,6 +219,44 @@ comprobar "sin manifiesto tampoco pisa la configuracion" $?
 printf '%s' "$SALIDA3" | grep -q "no hay SKILLS-PORTABLE/.manifiesto"
 comprobar "y lo dice claramente" $?
 
+# --- 7. Instalacion ANTERIOR a SKILLS-PORTABLE: tampoco pisa nada -----------
+#
+# El caso 6 borra el manifiesto pero DEJA la carpeta, asi que quedaba un rastro
+# y el instalador entraba en modo actualizacion igual. Los proyectos de verdad no
+# estan asi: los tres que usan el kit (barber-king, api-sunat-scr,
+# portal-web-api-sunat) no tienen SKILLS-PORTABLE/ en absoluto. Sin ningun
+# rastro, el instalador los trataba como destino VIRGEN y pisaba la
+# configuracion del equipo sin aviso y sin dejar .nuevo — con el README
+# prometiendo lo contrario. Este caso es ese escenario exacto.
+PROY5="$TMP/proyecto-pre-portable"
+mkdir -p "$PROY5"
+sh "$KIT/instalar.sh" "$PROY5" --protocolo >/dev/null 2>&1
+SKILL5="$PROY5/.claude/skills/equipo-que-toca/SKILL.md"
+sed -i "s/{{OWNER}}/EquipoMuyAntiguo/g" "$SKILL5"
+rm -rf "$PROY5/SKILLS-PORTABLE"                   # como los proyectos de verdad
+rm -f "$PROY5/scripts/deriva_ramas.py"            # y le falta una pieza del kit
+SALIDA5="$(sh "$KIT2/instalar.sh" "$PROY5" --protocolo 2>&1)"
+
+grep -q "EquipoMuyAntiguo" "$SKILL5"
+comprobar "SIN SKILLS-PORTABLE tampoco se pisa la configuracion" $?
+[ -f "$SKILL5.nuevo" ]
+comprobar "y la version del kit llega al lado, como .nuevo" $?
+[ -f "$PROY5/scripts/deriva_ramas.py" ]
+comprobar "y lo que le faltaba del kit SI llega" $?
+printf '%s' "$SALIDA5" | grep -q "ya hay una instalacion del kit aqui"
+comprobar "se reconoce como instalacion previa, no como destino virgen" $?
+
+# El modo tambien se deduce: sin manifiesto no hay `# modo=` que leer, y
+# quedarse en fabrica dejaria fuera justo las guardas que le faltan al proyecto.
+PROY6="$TMP/proyecto-pre-portable-sin-flag"
+mkdir -p "$PROY6"
+sh "$KIT/instalar.sh" "$PROY6" --protocolo >/dev/null 2>&1
+rm -rf "$PROY6/SKILLS-PORTABLE"
+rm -f "$PROY6/scripts/tablero.py"
+sh "$KIT2/instalar.sh" "$PROY6" >/dev/null 2>&1   # SIN --protocolo, a proposito
+[ -f "$PROY6/scripts/tablero.py" ]
+comprobar "sin flag, un proyecto con protocolo no se degrada a fabrica" $?
+
 echo
 if [ "$FALLIDOS" -gt 0 ]; then
     echo "$FALLIDOS comprobacion(es) fallida(s)."
