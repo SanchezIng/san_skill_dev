@@ -127,6 +127,40 @@ proyecto, así que siempre se puede saber con qué versión se instaló. Verific
 ciclo completo con `sh test_instalar.sh` (44 casos; en Windows tarda ~3 min
 porque hace varias instalaciones reales de punta a punta).
 
+### Saber en qué se ha desviado un proyecto (detector de deriva)
+
+```bash
+python3 /ruta/al/kit/deriva_kit.py /ruta/al/proyecto [más proyectos...]
+python3 /ruta/al/kit/deriva_kit.py --resumen /ruta/a/proy1 /ruta/a/proy2
+```
+
+El kit viaja por copia, así que las dos copias evolucionan por su cuenta y nadie
+se entera. Pasó dos veces: una deriva de 15 archivos que se descubrió de
+casualidad, y un port que se creyó completo y dejó `plantillas/hooks/arranque.sh`
+atrasado tres días. Las dos veces el problema no fue portar mal — fue **no poder
+preguntar**. Esto responde en segundos.
+
+| Marca | Significa |
+|---|---|
+| `=` | idéntico al kit |
+| `~` | **solo configuración**: la única diferencia son los `{{PLACEHOLDERS}}` rellenados |
+| `!` | divergente de verdad, con cuántas líneas no se explican por configuración |
+| `-` | el kit lo instala y el proyecto no lo tiene |
+
+Distinguir `~` de `!` es todo el valor: sin eso, las piezas más importantes —las
+3 skills, `tablero.py`, `audit_check.py`— saldrían siempre en rojo por tener
+placeholders, y un informe que siempre está en rojo se aprende a ignorar.
+
+Para saber qué escribe el kit **no duplica el mapa de archivos**: lo instala en un
+temporal y lee el manifiesto que deja el propio instalador. Un detector de deriva
+que copia el mapa acaba derivando él mismo.
+
+Sale 1 si hay divergencia real, pero **no es una guarda de CI**: un proyecto vivo
+siempre tendrá divergencia legítima (barber-king fusionó `docs-check.yml` dentro
+de su `ci.yml` a propósito). Se ejecuta a mano: antes de portar, después de
+portar, y antes de creerse que algo está sincronizado. Sus tests:
+`python3 test_deriva_kit.py`.
+
 ### A) Proyecto nuevo (desde una idea)
 
 1. Copia `skills/project-kickstart/` y `skills/secure-coding-guard/` a `.claude/skills/`
