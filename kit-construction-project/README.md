@@ -102,7 +102,7 @@ al actualizar se compara.
 | Igual que lo dejó el kit | lo actualiza |
 | **Modificado por vosotros** | **lo conserva** y deja la versión nueva como `<archivo>.nuevo` |
 | No existe (pieza nueva del kit) | lo trae |
-| Instalación anterior a los manifiestos | conserva todo; nada se pisa |
+| Instalación anterior a los manifiestos (o sin `SKILLS-PORTABLE/`) | conserva todo; nada se pisa, y lo que le falte del kit sí llega |
 
 Al terminar te lista qué actualizó y qué conservó. Para reconciliar un
 conservado: compara con `git diff --no-index <archivo> <archivo>.nuevo`, traéte
@@ -114,10 +114,17 @@ kit, vuelve a gestionarse solo.
 > El reflejo natural es reinstalar con el mismo comando, y que ese reflejo
 > borrara la configuración del equipo era justo el fallo que esto arregla: la
 > protección no puede depender de recordar una opción.
+>
+> **Y «ya hay una instalación» no significa «hay una carpeta `SKILLS-PORTABLE/`».**
+> Se buscan los archivos que el instalador escribe siempre, porque los proyectos
+> instalados antes de que esa carpeta existiera —o donde alguien la borró, que es
+> lo que este mismo README recomienda— no la tienen. Hasta el 2026-08-06 esos
+> proyectos se trataban como destino virgen, que es la única forma que había de
+> perder la configuración.
 
 La versión del kit está en `VERSION` (fecha) y queda sellada en el manifiesto del
 proyecto, así que siempre se puede saber con qué versión se instaló. Verifica el
-ciclo completo con `sh test_instalar.sh` (37 casos; en Windows tarda ~2 min
+ciclo completo con `sh test_instalar.sh` (44 casos; en Windows tarda ~3 min
 porque hace varias instalaciones reales de punta a punta).
 
 ### A) Proyecto nuevo (desde una idea)

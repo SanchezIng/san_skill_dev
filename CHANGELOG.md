@@ -3,6 +3,41 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-06 (3) — El instalador pisaba la configuración de los tres proyectos reales
+
+`instalar.sh` decidía «aquí ya hay una instalación» mirando dos cosas:
+`SKILLS-PORTABLE/.manifiesto` o la carpeta `SKILLS-PORTABLE/`. **Los tres
+proyectos que usan el kit no tienen ninguna de las dos** — se instalaron antes de
+que esa carpeta existiera, y el propio README dice que la copia de origen «queda
+redundante: puedes borrarla».
+
+Sin rastro, el destino se trataba como **virgen**: ruta de instalación limpia,
+`cp` directo, y la configuración del equipo **pisada sin aviso y sin dejar
+`.nuevo`**. Comprobado ejecutándolo sobre una copia: el `SKILL.md` configurado
+cambia de hash y vuelve a estar lleno de `{{PLACEHOLDERS}}`.
+
+Lo que lo vuelve grave no es el bug, es **contra qué comando estaba**: el único
+que el README ofrece para actualizar. Y la fila «Instalación anterior a los
+manifiestos → conserva todo; nada se pisa» **ya estaba escrita en ese README**.
+La promesa existía; la condición para cumplirla, no.
+
+**Por qué los tests no lo vieron, que es la parte que importa:** el caso 6
+simulaba una instalación pre-manifiesto borrando el manifiesto **pero dejando la
+carpeta**. Con la carpeta ahí quedaba un rastro, el instalador entraba en modo
+actualización y el caso pasaba en verde describiendo un mundo que ningún proyecto
+habita. Un fixture a medias es peor que ninguno: da por cubierto justo lo que no
+lo está.
+
+Ahora el rastro se busca en lo que el instalador escribe **siempre**
+(`.claude/skills/project-kickstart/SKILL.md`, `.claude/hooks/arranque.sh`) y en
+lo que delata el modo protocolo (`.claude/skills/equipo-que-toca/SKILL.md`). De
+paso, **el modo se deduce**: sin manifiesto no hay `# modo=` que leer, y
+quedarse en fábrica dejaría fuera justo las guardas que a esos proyectos les
+faltan — `deriva_kit.py` mide que a los dos de SUNAT les falta el 40% del kit.
+
+5 casos nuevos (44 en la suite; el README decía 37 desde el 07-27). Verificado
+que muerden: con el `instalar.sh` anterior fallan.
+
 ## 2026-08-06 — `VERSION` decía una cosa y el kit traía otra
 
 Los dos últimos cambios grandes entraron **sin tocar `VERSION` y sin escribir
