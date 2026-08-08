@@ -3,6 +3,45 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-07 — Dos guardas volvían del proyecto donde crecieron, y una no estaba enchufada
+
+Retorno proyecto→kit: `docs_check.py` y `arranque.sh` llevaban semanas mejorando
+en un proyecto real y el kit seguía generando la versión de julio. **La mitad que
+falla siempre no es cómo baja el kit a los proyectos, es cómo suben los arreglos**
+— van dos de tres veces que se descubre por casualidad.
+
+**`docs_check.py` (243 → 359 líneas): el contador del ROADMAP.** El avance está
+escrito a mano en TRES sitios —la tabla de cabecera, la fila de subfases y la
+frase en prosa— y se calcula solo. Ya falló dos veces en el proyecto de origen; la
+segunda es la que justifica la guarda: dos ramas subieron el contador **al mismo
+número por motivos distintos**, git auto-fusionó el texto idéntico sin marcar
+conflicto, y el resultado quedó declarando una subfase menos de las que había. Un
+conflicto lo ve quien mergea; esto no lo ve nadie. Ahora se cuenta por estructura
+—una fase con subfases aporta las suyas, una sin ellas aporta 1— y se coteja
+contra lo declarado, con 1 punto de tolerancia en el % para que un redondeo
+distinto no produzca un rojo que se aprenda a ignorar.
+
+**`arranque.sh` (76 → 160 líneas): el aviso de hooks miraba un solo tipo.** Antes
+comprobaba `pre-push` y que el fichero **existiera**. Dos agujeros: un clon con
+`pre-commit` y sin `pre-push` pasaba callado, y un hook heredado de otro flujo
+daba falso verde —fichero presente, guarda ausente—. Ahora los tipos se **leen**
+de `.pre-commit-config.yaml` en vez de hardcodearse (así un tercero queda cubierto
+solo) y se exige el marcador que pre-commit escribe en su cabecera. Y cuando la
+clave está en YAML de bloque, que estos `sed` no saben leer, **lo dice** en vez de
+callarse: una guarda contra fallos invisibles no puede permitirse uno.
+
+**Lo que apareció al portar, y no venía del origen: las guardas de `docs_check`
+no estaban probadas a través de `main()`.** Los 25 casos llamaban a
+`enlaces_rotos()`, `backlog_incoherente()` y `roadmap_incoherente()` por separado,
+así que **desenchufar cualquiera de las tres dejaba la suite en verde**.
+Comprobado por mutación, no supuesto. Caso 26 añadido: monta un repo donde las
+tres tienen algo que denunciar y exige que las tres salgan. Verificado que muerde
+con las tres mutaciones, una a una. Una guarda desconectada es indistinguible de
+una que pasa, que es el mismo modo de fallo que el fixture a medias del 06-08.
+
+Suite: 26/26 en `test_docs_check.py` (era 25) y `test_arranque.sh` en verde, más
+los otros diez ficheros de test del kit sin tocar. `VERSION` → `2026-08-07`.
+
 ## 2026-08-06 (3) — El instalador pisaba la configuración de los tres proyectos reales
 
 `instalar.sh` decidía «aquí ya hay una instalación» mirando dos cosas:
