@@ -157,6 +157,50 @@ poder mentir. Lo segundo es más trabajo y no se hace hoy.
 `# kit=2026-07-26`: ese fichero es la foto de una instalación pasada (la de
 barber-king), no la versión del catálogo. Cambiarlo sería falsear el registro que
 va a servir para engancharlo.
+## 2026-07-28 — El kit escribía órdenes que su lector no puede cumplir
+
+El usuario trajo un prototipo HTML cuyo texto decía «abre el prototipo y míralo
+antes de maquetar». El kickstart lo copió palabra por palabra a ~16 subfases de
+la guía generada. **Claude Code no tiene renderizador**: ninguna de esas 16 se
+podía cumplir. Y el prototipo era un artifact *bundled* —2,9 MB donde un `Read`
+devuelve base64 y la UI vive dentro de `<script type="__bundler/template">`—, así
+que la sesión que lo detectó escribió un desempaquetador de ~40 líneas para poder
+leerlo, resolvió su parte y **se lo llevó al cerrar**. El repo quedó con 16
+órdenes imposibles y sin la herramienta que las hacía posibles.
+
+El kit no controla lo que entra —es material arbitrario del usuario y no va a
+controlarlo nunca— pero sí controla lo que sale. Ahí se corta:
+
+- **Fila del diseño** en la tabla de entorno de `project-kickstart`, con el caso
+  *bundled* explicado y la orden de dejar el desempaquetador en `scripts/`.
+- **Regla 8 de las «Inviolables»:** lo heredado de la entrada se traduce al
+  procedimiento que sí funciona donde va a leerse, y la herramienta que hizo
+  falta se queda en el repo. Con el caso real escrito debajo — una regla sin su
+  historia se borra en el primer refactor.
+- **El mecanismo, que es lo que la separa de una recomendación:** regla 6 de
+  `verificar_kit.py`, en el Paso 10. Una orden de mirar un diseño sale roja salvo
+  que al lado esté el comando **y** la herramienta exista en el repo. Las dos
+  mitades fallaron de verdad: sin comando sigue siendo «míralo», y con un comando
+  a un script que se cerró con la sesión, la siguiente lo rehace.
+- Y `ejecutabilidad_documentada()` en `kickstart_check.py`, para que la fila y la
+  regla no puedan caerse en silencio.
+
+**Lo que enseñó ejecutarlo contra el proyecto real, que es la parte que importa.**
+La primera versión de la regla saltaba los bloques de código, como hacen las otras
+cuatro —ahí viven plantillas y ejemplos—. Contra BarberCrow encontró **2** fallos.
+Los otros once estaban DENTRO de los prompts: en la guía generada los bloques no
+son ejemplos, son lo que el dev pega literal. Esta regla los mira, y es la única
+que lo hace. Después apareció la segunda mitad: «ABRE el prototipo» se veía y
+«(pantalla 8 del prototipo — ábrelo)» no, por el orden de las palabras.
+
+Sin esa ejecución, el mecanismo habría pasado sus 35 casos en verde cubriendo el
+15% del fallo que decía cubrir. Ahora saca 13 fallos sobre el proyecto real y los
+13 son verdaderos: cero ruido, que es la condición que dejó puesta el arreglo del
+verificador (M-10) — una guarda que sale roja con ruido no se lee, se rodea.
+
+`diseño` a secas se dejó **fuera** del patrón a propósito: en español cubre «el
+diseño de la base de datos», que se mira leyendo un `.md`. La regla general vive
+en la skill; el que muerde solo muerde la forma que ya se sabe que aparece.
 
 ## 2026-07-27 (3) — Una lista que solo sabe decir "queda trabajo" no informa
 

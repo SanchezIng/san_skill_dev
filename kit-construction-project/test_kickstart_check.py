@@ -60,6 +60,10 @@ Aplica ademas las secciones 1 y 2 de `references/trabajo_en_equipo.md`.
 
 Entrega todo.
 
+## Reglas de calidad de los archivos generados
+
+8. Todo lo que escribas tiene que ser ejecutable por quien va a ejecutarlo
+
 ## Archivos de referencia
 
 - `references/plantillas.md` - estructura exacta de los archivos
@@ -234,6 +238,50 @@ def _():
     fallos = revisar({"skills/project-kickstart/SKILL.md": con_tabla})
     assert any("ask_user_input_v0" in f for f in fallos), fallos
     assert not any("present_files` pero" in f for f in fallos), "esa si estaba traducida"
+
+
+# ------------------------------- 0bis lo generado, ejecutable en su destino
+#
+# Costo una sesion entera: entro un prototipo HTML con "abre el prototipo y
+# miralo", el kickstart lo copio literal a ~16 subfases, y Claude Code no tiene
+# renderizador. Ninguna se podia cumplir. La fila de la tabla cubre el diseno;
+# la regla de las "Inviolables" cubre la clase entera.
+
+@caso("tabla de entorno sin la fila del diseno: MUERDE")
+def _():
+    con_tabla = SKILL_CON_CHAT.replace("### Paso 9", TABLA_ENTORNO + "\n### Paso 9")
+    fallos = revisar({"skills/project-kickstart/SKILL.md": con_tabla})
+    assert any("mirar un diseno" in f for f in fallos), fallos
+
+
+@caso("con la fila del diseno: PASA")
+def _():
+    tabla = sustituir(
+        TABLA_ENTORNO,
+        "| `present_files` | esa misma | escribe los archivos en el repo |",
+        "| `present_files` | esa misma | escribe los archivos en el repo |\n"
+        "| mirar un diseno | se ve renderizado | no hay renderizador: se LEE |")
+    con_tabla = SKILL_CON_CHAT.replace("### Paso 9", tabla + "\n### Paso 9")
+    fallos = revisar({"skills/project-kickstart/SKILL.md": con_tabla})
+    assert not any("diseno" in f for f in fallos), fallos
+
+
+@caso("sin la regla de ejecutabilidad en las Inviolables: MUERDE")
+def _():
+    sin_regla = sustituir(
+        SKILL_MD,
+        "8. Todo lo que escribas tiene que ser ejecutable por quien va a ejecutarlo",
+        "8. Los archivos deben ser autocontenidos")
+    fallos = revisar({"skills/project-kickstart/SKILL.md": sin_regla})
+    assert any("ejecutable por quien va a ejecutarlo" in f for f in fallos), fallos
+
+
+@caso("sin la seccion de calidad entera: MUERDE (no se cae en silencio)")
+def _():
+    sin_seccion = sustituir(SKILL_MD, "## Reglas de calidad de los archivos generados",
+                            "## Otra cosa")
+    fallos = revisar({"skills/project-kickstart/SKILL.md": sin_seccion})
+    assert any("no se encontro la seccion" in f for f in fallos), fallos
 
 
 # --------------------------------------------------------------- 1 inventario

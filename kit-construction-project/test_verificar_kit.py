@@ -382,6 +382,124 @@ def _():
     assert fallos == [], fallos
 
 
+# --- 7. Ordenes que el entorno de destino no puede cumplir ------------------
+#
+# El caso real: ~16 subfases de la guia decian "ABRE el prototipo y miralo".
+# Claude Code no tiene renderizador, asi que ninguna se podia cumplir; y el
+# desempaquetador que hizo falta para leerlo se quedo en la sesion. El repo
+# quedo con 16 ordenes imposibles y sin la herramienta que las salvaba.
+
+@caso("«ABRE el prototipo» sin comando al lado: MUERDE")
+def _():
+    fallos, _s = revisar(extra={
+        "docs/guia_desarrollo.md":
+            "# Guía\n\n## FASE 1\n\n"
+            "Antes de maquetar cualquier pantalla, ABRE el prototipo y míralo.\n"
+    })
+    assert len(fallos) == 1, fallos
+    assert "docs/guia_desarrollo.md:5" in fallos[0], fallos
+    assert "no tiene renderizador" in fallos[0], fallos
+
+
+@caso("la misma orden CON el comando y la herramienta en el repo: se acepta")
+def _():
+    fallos, _s = revisar(extra={
+        "docs/guia_desarrollo.md":
+            "# Guía\n\n## FASE 1\n\n"
+            "Antes de maquetar, mira el prototipo. Viene *bundled*, así que:\n\n"
+            "```bash\npython scripts/desempaquetar_diseno.py design/proto.html\n```\n",
+        "scripts/desempaquetar_diseno.py": "# extrae el template y los assets\n",
+    })
+    assert fallos == [], fallos
+
+
+@caso("comando a una herramienta que se quedo en la sesion: MUERDE igual")
+def _():
+    # La mitad que mas cuesta ver: la orden trae procedimiento, pero apunta a un
+    # script que no existe en el repo. La siguiente sesion tiene que rehacerlo,
+    # que es exactamente lo que paso.
+    fallos, _s = revisar(extra={
+        "docs/guia_desarrollo.md":
+            "# Guía\n\n## FASE 1\n\n"
+            "Mira el prototipo con:\n\n"
+            "```bash\npython scripts/desempaquetar_diseno.py design/proto.html\n```\n"
+    })
+    assert len(fallos) == 1, fallos
+    assert "deja la herramienta en el repo" in fallos[0], fallos
+
+
+@caso("citar el archivo de diseno NO basta: existir no lo hace legible")
+def _():
+    fallos, _s = revisar(extra={
+        "docs/guia_desarrollo.md":
+            "# Guía\n\n## FASE 1\n\nAbre `design/proto.html` y míralo.\n",
+        "design/proto.html": "<html></html>\n",
+    })
+    assert len(fallos) == 1, fallos
+    assert "no se puede cumplir" in fallos[0], fallos
+
+
+@caso("«el diseño de la base de datos» NO es una orden visual: no muerde")
+def _():
+    # `diseño` a secas se dejo FUERA del patron a proposito. En espanol cubre
+    # cosas que se miran leyendo un .md, y meterlo fabricaria el ruido que M-10
+    # enseno a no volver a fabricar.
+    fallos, _s = revisar(extra={
+        "docs/especificaciones.md":
+            "# Especificaciones\n\nMira el diseño de la base de datos en §4, "
+            "y revisa el diseño de la arquitectura antes de tocar nada.\n"
+    })
+    assert fallos == [], fallos
+
+
+@caso("la orden DENTRO del prompt MUERDE: ahi es donde vivia de verdad")
+def _():
+    # Esta regla es la unica que mira dentro de los bloques de codigo, y no es
+    # un descuido. En la guia generada los bloques son los PROMPTS que el dev
+    # pega (regla 2 de calidad: literales y copy-pasteables). Saltandolos, de
+    # las ~16 ordenes imposibles del proyecto real no se veia NI UNA.
+    fallos, _s = revisar(extra={
+        "docs/guia_desarrollo.md":
+            "# Guía\n\n## FASE 1.4\n\nPrompt de arranque:\n\n"
+            "```\nEjecuto F1.4 (T-004). ABRE el prototipo y míralo\n```\n"
+    })
+    assert len(fallos) == 1, fallos
+    assert "docs/guia_desarrollo.md:8" in fallos[0], fallos
+
+
+@caso("orden con el objeto ANTES del verbo: muerde igual")
+def _():
+    # "(pantalla 8 del prototipo — abrelo)". En el corpus real aparecen las dos
+    # direcciones, y con una sola se escapaban ordenes identicas.
+    fallos, _s = revisar(extra={
+        "docs/guia_desarrollo.md":
+            "# Guía\n\n## FASE 1\n\nImplementa la ficha (pantalla 8 del "
+            "prototipo — ábrelo):\n"
+    })
+    assert len(fallos) == 1, fallos
+
+
+@caso("«se abre en el navegador del usuario» es descripcion, no orden")
+def _():
+    fallos, _s = revisar(extra={
+        "docs/especificaciones.md":
+            "# Especificaciones\n\nEl prototipo se abre en el navegador del "
+            "cliente final, no en el nuestro.\n"
+    })
+    assert fallos == [], fallos
+
+
+@caso("con el kit INSTALADO alrededor, la regla no acusa al paquete")
+def _():
+    # Mismo criterio que M-10: `SKILLS-PORTABLE/` y `.claude/` son plantilla.
+    instalado = dict(INSTALADO)
+    instalado["SKILLS-PORTABLE/skills/project-kickstart/references/plantillas.md"] = (
+        "# Plantillas\n\nSi el usuario trae un diseño, abre el prototipo.\n"
+    )
+    fallos, _s = revisar(extra=instalado)
+    assert fallos == [], fallos
+
+
 # --- Salida de la herramienta -----------------------------------------------
 
 @caso("main() con el kit roto: exit 1 y dice que no lo entregues")

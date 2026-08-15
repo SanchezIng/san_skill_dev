@@ -20,6 +20,9 @@ Lo que se comprueba (todo dentro del paquete; no hace falta ejecutar la skill):
   5. Las secciones numeradas que un documento del kit cita de otro existen.
   6. Todo `{{PLACEHOLDER}}` de las plantillas instalables esta documentado en la
      tabla del README, y todo el que la tabla documenta se sigue usando.
+  7. La skill sigue diciendo que lo que genera tiene que ser EJECUTABLE en su
+     entorno de destino: la fila del diseno en la tabla de entorno y la regla
+     que la generaliza en las "Inviolables".
 
 Limites conocidos (dichos en voz alta, que es lo contrario de fingir cobertura):
 
@@ -84,6 +87,18 @@ SECCION_REFERENCIAS_SKILL = "## Archivos de referencia"
 # que es justo donde se pierden archivos.
 HERRAMIENTAS_DE_CHAT = ("ask_user_input_v0", "present_files", "skill `docx`")
 SECCION_ENTORNO = "## Antes del Paso 0"
+
+# La otra mitad del entorno, y la que costo una sesion entera: no es una
+# herramienta que la skill NOMBRE, es una capacidad que sus pasos dan por
+# supuesta. El Paso 0 pide "mockups o screenshots de la UI" y en el chat eso se
+# ve renderizado; en Claude Code no hay renderizador. Sin esa fila, el kickstart
+# copia "abre el prototipo" del material de entrada a la guia generada y produce
+# ordenes que su lector no puede cumplir.
+SENA_DISENO = "renderizador"
+# Y la regla que lo generaliza, en las "Inviolables": lo heredado de la entrada
+# se reescribe ejecutable, y la herramienta que hizo falta se queda en el repo.
+SECCION_CALIDAD = "## Reglas de calidad de los archivos generados"
+SENA_EJECUTABLE = "ejecutable por quien va a ejecutarlo"
 
 
 # ---------------------------------------------------------------- utilidades
@@ -401,9 +416,52 @@ def entorno_traducido() -> list[str]:
             f"equivalente en Claude Code." for h in faltan]
 
 
+def ejecutabilidad_documentada() -> list[str]:
+    """Lo generado tiene que poder ejecutarlo quien lo va a leer.
+
+    Dos piezas, y las dos se borran sin que nada chille si esto no existe:
+
+    - La fila del DISENO en la tabla de entorno. No es una herramienta que la
+      skill nombre —por eso `entorno_traducido` no la ve— sino una capacidad que
+      sus pasos suponen: el Paso 0 pide mockups, y en el chat esos se ven. En
+      Claude Code no. Faltando la fila, el kickstart traduce "abre el prototipo"
+      palabra por palabra a la guia y el proyecto nace con ordenes imposibles.
+    - La regla que lo generaliza en las "Inviolables". La fila resuelve el caso
+      del diseno; la regla resuelve la clase, que es todo lo que venga en el
+      material de entrada escrito para un humano con pantalla.
+
+    Pasó de verdad: ~16 subfases con "ABRE el prototipo", y el desempaquetador
+    que hizo falta para leerlo se cerro con la sesion.
+    """
+    texto = _leer(SKILL)
+    fallos = []
+
+    # Si la seccion de entorno no existe, el que habla es `entorno_traducido`:
+    # decir aqui "te falta una fila" de una tabla que no esta seria ruido, y el
+    # ruido es lo que ensena a saltarse la guarda entera (M-10).
+    entorno = "\n".join(_tramo(_sin_fences(texto), SECCION_ENTORNO, ("## Flujo",)))
+    if entorno.strip() and SENA_DISENO not in entorno:
+        fallos.append(
+            f"{SKILL}: la seccion '{SECCION_ENTORNO}' no dice que en Claude Code no "
+            f"hay {SENA_DISENO} (falta la fila de mirar un diseno). Sin eso, un "
+            f"prototipo de la entrada se copia a la guia como 'abrelo y miralo', "
+            f"que es una orden que nadie puede cumplir.")
+
+    calidad = "\n".join(_tramo(_sin_fences(texto), SECCION_CALIDAD, ("## ",)))
+    if not calidad.strip():
+        fallos.append(f"{SKILL}: no se encontro la seccion '{SECCION_CALIDAD}'")
+    elif SENA_EJECUTABLE not in calidad:
+        fallos.append(
+            f"{SKILL}: '{SECCION_CALIDAD}' no exige que lo generado sea "
+            f"{SENA_EJECUTABLE}. Es la regla que impide copiar literal lo que trae "
+            f"el usuario; sin ella la fila del diseno solo cubre el diseno.")
+    return fallos
+
+
 REGLAS = [
     ("inventario", inventario_creible),
     ("entorno traducido", entorno_traducido),
+    ("ejecutabilidad de lo generado", ejecutabilidad_documentada),
     ("listas de archivos", listas_coinciden),
     ("plantilla por archivo", cada_archivo_tiene_plantilla),
     ("rutas del paquete", rutas_del_paquete_existen),
