@@ -41,6 +41,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 RUTA_BACKLOG = "{{RUTA_BACKLOG}}"
 
 # "auto" | "espejado" | "local". Ver cabecera del modulo.
+# "auto" | "espejado" | "local". Ver cabecera del modulo.
 MODO_BACKLOG = "auto"
 
 # Solo archivos trackeados: lo no versionado (notas locales) no se audita.
@@ -58,6 +59,21 @@ ESTADO_DONE = re.compile(r"^[-*]?\s*Estado:\s*\**\s*Done\b", re.IGNORECASE)
 # Tope de comprobaciones individuales contra la API (una peticion por issue que
 # no venia en el listado masivo). Por encima, se informa en vez de acusar.
 MAX_COMPROBACIONES = 50
+
+# Ruta del ROADMAP relativa a la raiz. Vacia => no se comprueba el contador.
+RUTA_ROADMAP = "ROADMAP.md"
+
+# El ROADMAP declara su avance TRES veces: la tabla de cabecera (dos filas) y la
+# frase en prosa. Son tres copias del mismo hecho, escritas a mano, y por eso se
+# desincronizan. Lo que sigue las coteja contra las marcas reales del documento.
+SECCION_FASE = re.compile(r"^### F\d+")
+SUBFASE = re.compile(r"^- (\S+) F\d+\.\d+")
+ESTADO_FASE = re.compile(r"^\*\*Estado:\*\*\s*(\S+)")
+FILA_COMPLETADAS = re.compile(r"^\|\s*Completadas\s*\|\s*(\d+)\s*/\s*(\d+)\s*\|")
+FILA_SUBFASES = re.compile(r"^\|\s*Subfases totales\s*\|\s*(\d+)\s*\|")
+FILA_AVANCE = re.compile(r"^\|\s*%\s*avance\s*\|\s*(\d+)\s*%\s*\|")
+PROSA_COMPLETADAS = re.compile(r"^Las (\d+),\s+en orden de cierre")
+HECHO = "✅"
 
 
 def _lineas_fuera_de_fence(texto: str) -> list[str]:
@@ -228,14 +244,114 @@ def backlog_incoherente() -> list[str]:
     return fallos
 
 
+def _avance_real(texto: str) -> tuple[int, int]:
+    """(completadas, totales) contando las MARCAS del ROADMAP, no lo que declara.
+
+    Se cuenta por estructura y no por la frase "sin subfases": una fase con
+    subfases aporta sus subfases; una fase sin ellas aporta 1, hecha o no. Asi
+    la cuenta no depende de que nadie olvide escribir una coletilla.
+    """
+    completadas = totales = 0
+    # Se corta tambien en `## ` y no solo en `### ` (lo cazo una review en un proyecto real): si no, todo
+    # lo que va DETRAS de la ultima fase —`## Hitos clave`, `## Bitacora de
+    # cierres`— sigue dentro de su bloque, y una viñeta `- ✅ Fn.m` escrita alli
+    # (la bitacora pide justo eso al cerrar cada subfase) subiria el total en
+    # silencio. Los trozos que abren con `## ` no casan SECCION_FASE y se
+    # descartan solos.
+    for seccion in re.split(r"\n(?=#{2,3} )", "\n".join(_lineas_fuera_de_fence(texto))):
+        lineas = seccion.splitlines()
+        if not lineas or not SECCION_FASE.match(lineas[0]):
+            continue
+        subfases = [m.group(1) for m in (SUBFASE.match(l) for l in lineas) if m]
+        if subfases:
+            totales += len(subfases)
+            completadas += sum(1 for e in subfases if e == HECHO)
+            continue
+        # Fase sin subfases (F3, F6): cuenta como una, y su estado es el de la
+        # linea `**Estado:**`, que es donde vive su unica marca.
+        estado = next((m.group(1) for m in (ESTADO_FASE.match(l) for l in lineas) if m), "")
+        totales += 1
+        completadas += 1 if estado.startswith(HECHO) else 0
+    return completadas, totales
+
+
+def roadmap_incoherente() -> list[str]:
+    """El contador del ROADMAP contra sus propias marcas.
+
+    Por que existe: el avance esta escrito a mano en TRES sitios y se calcula
+    solo. Ya fallo dos veces. La segunda es la que justifica la guarda: dos
+    ramas subieron el contador al MISMO numero por motivos distintos (una por
+    F5.1, otra por F6), git auto-fusiono el texto identico sin marcar conflicto
+    y el resultado quedo declarando una menos de las que habia. Un conflicto lo
+    ve el que mergea; esto no lo ve nadie.
+    """
+    if not RUTA_ROADMAP:
+        return []
+    roadmap = RAIZ / RUTA_ROADMAP
+    if not roadmap.exists():
+        # No se calla: si la ruta apunta a un sitio que no existe, la guarda no
+        # esta cubriendo lo que cree cubrir.
+        return [f"scripts/docs_check.py apunta a {RUTA_ROADMAP}, que no existe "
+                f"(corrige RUTA_ROADMAP o restaura el archivo)"]
+
+    texto = roadmap.read_text(encoding="utf-8")
+    completadas, totales = _avance_real(texto)
+    if totales == 0:
+        return [f"{RUTA_ROADMAP}: no se encontro ninguna fase (### Fn). La guarda del "
+                f"contador no puede emitir veredicto: revisa el formato del documento"]
+
+    lineas = _lineas_fuera_de_fence(texto)
+    fallos = []
+
+    def declarado(patron):
+        return next((m for m in (patron.match(l) for l in lineas) if m), None)
+
+    m = declarado(FILA_COMPLETADAS)
+    if m is None:
+        fallos.append(f"{RUTA_ROADMAP}: falta la fila '| Completadas | N / M |' de la tabla "
+                      f"de cabecera; sin ella nadie sabe el avance de un vistazo")
+    else:
+        if int(m.group(1)) != completadas:
+            fallos.append(f"{RUTA_ROADMAP}: la tabla dice {m.group(1)} subfases completadas "
+                          f"y las marcas ✅ del propio documento son {completadas}")
+        if int(m.group(2)) != totales:
+            fallos.append(f"{RUTA_ROADMAP}: la tabla dice un total de {m.group(2)} subfases "
+                          f"y las que sé leer en el documento son {totales} "
+                          f"(revisa también que ninguna esté escrita en un formato "
+                          f"distinto de `- ✅ Fn.m`)")
+
+    m = declarado(FILA_SUBFASES)
+    if m and int(m.group(1)) != totales:
+        fallos.append(f"{RUTA_ROADMAP}: 'Subfases totales' dice {m.group(1)} y las que sé "
+                      f"leer en el documento son {totales} (revisa también que ninguna "
+                      f"esté escrita en un formato distinto de `- ✅ Fn.m`)")
+
+    m = declarado(FILA_AVANCE)
+    if m:
+        esperado = round(100 * completadas / totales)
+        # Tolerancia de 1 punto a proposito: quien lo escriba puede redondear de
+        # otra forma y eso no es un defecto. Un rojo que no significa nada se
+        # aprende a ignorar, y esta guarda existe justo para lo contrario.
+        if abs(int(m.group(1)) - esperado) > 1:
+            fallos.append(f"{RUTA_ROADMAP}: '% avance' dice {m.group(1)}% y "
+                          f"{completadas}/{totales} es {esperado}%")
+
+    m = declarado(PROSA_COMPLETADAS)
+    if m and int(m.group(1)) != completadas:
+        fallos.append(f"{RUTA_ROADMAP}: la frase 'Las {m.group(1)}, en orden de cierre' "
+                      f"contradice a las marcas ✅, que son {completadas}")
+
+    return fallos
+
+
 def main() -> int:
-    fallos = enlaces_rotos() + backlog_incoherente()
+    fallos = enlaces_rotos() + backlog_incoherente() + roadmap_incoherente()
     for fallo in fallos:
         print(f"FALLO {fallo}")
     if fallos:
         print(f"\n{len(fallos)} problema(s) de coherencia en la documentacion.")
         return 1
-    print("Documentacion coherente: enlaces OK, backlog<->issues OK.")
+    print("Documentacion coherente: enlaces OK, backlog<->issues OK, contador del ROADMAP OK.")
     return 0
 
 

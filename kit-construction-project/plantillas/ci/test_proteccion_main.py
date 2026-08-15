@@ -86,14 +86,19 @@ def caso(nombre):
     return envoltorio
 
 
-def api_simulada(prs_por_commit=None, revisiones_por_pr=None, colaboradores=None):
+def api_simulada(prs_por_commit=None, revisiones_por_pr=None, colaboradores=None,
+                 owner=None, mergeado_por=None):
     """prs_por_commit: {sha_corto_o_'*': [{'number': N}]}; ausente = sin PR.
 
     `colaboradores`: lista de dicts como los de la API, o `None` para simular
     que la consulta no se pudo hacer.
+    `owner`: login del owner del repo, o `None` = no se pudo averiguar.
+    `mergeado_por`: {numero_de_pr: login}, para `merged_by` del PR. Un PR ausente
+    simula que no se pudo saber quien lo mergeo.
     """
     prs_por_commit = prs_por_commit or {}
     revisiones_por_pr = revisiones_por_pr or {}
+    mergeado_por = mergeado_por or {}
 
     def _api(ruta: str):
         if "/collaborators" in ruta:
@@ -106,6 +111,13 @@ def api_simulada(prs_por_commit=None, revisiones_por_pr=None, colaboradores=None
             if sha in prs_por_commit:
                 return prs_por_commit[sha]
             return prs_por_commit.get("*", [])
+        if "/pulls/" in ruta:                      # detalle del PR: merged_by
+            numero = int(ruta.rsplit("/pulls/", 1)[1])
+            if numero not in mergeado_por:
+                return []                          # no se pudo averiguar
+            return {"merged_by": {"login": mergeado_por[numero]}}
+        if ruta == "repos/{owner}/{repo}":          # owner del repo
+            return {"owner": {"login": owner}} if owner else []
         return []
     return _api
 
@@ -143,10 +155,102 @@ def _(tmp):
     base = repo.commit("chore: inicial")
     sha = repo.commit("feat: sin revisar")
     mod = cargar(tmp)
-    mod._api = api_simulada({"*": [{"number": 9}]}, {9: COMENTADO})
+    mod._api = api_simulada({"*": [{"number": 9}]}, {9: COMENTADO},
+                            owner="jefa", mergeado_por={9: "otro_dev"})
     fallos = mod.revisar(base, sha)
     assert len(fallos) == 1, fallos
     assert "SIN ninguna aprobacion" in fallos[0] and "#9" in fallos[0]
+    assert "NO es el owner" in fallos[0], fallos[0]
+    # Y orienta hacia la causa real: si un NO-owner pudo mergear sin aprobacion,
+    # la proteccion de rama no estaba puesta.
+    assert "branches/main/protection" in fallos[0], fallos[0]
+
+
+# --- El bypass del owner ---------------------------------------
+#
+# `enforce_admins: false` exime al owner a proposito: tiene que poder desatascar
+# el repo sin depender de nadie. Sus merges con `--admin` NO son violaciones, y
+# ponerse rojo por ellos entrenaria al equipo a ignorar el rojo — que es el fallo
+# que este kit persigue en todas partes. Se anotan y se sigue.
+
+@caso("PR sin aprobacion mergeado por el OWNER: se REGISTRA y no falla")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("docs: cierre del lead")
+    mod = cargar(tmp)
+    mod._api = api_simulada({"*": [{"number": 116}]}, {116: COMENTADO},
+                            owner="jefa", mergeado_por={116: "jefa"})
+    hallazgos = mod.revisar(base, sha)
+    assert len(hallazgos) == 1, hallazgos
+    assert hallazgos[0].startswith(mod.MARCA_REGISTRO), hallazgos[0]
+    assert "OWNER (jefa)" in hallazgos[0] and "#116" in hallazgos[0]
+    # Lo que de verdad importa: exit 0.
+    assert mod.main(["x", base, sha]) == 0
+
+
+@caso("un REGISTRO no tapa un FALLO que venga en el mismo push")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    del_owner = repo.commit("docs: cierre del lead")
+    a_pelo = repo.commit("fix: parche directo")
+    mod = cargar(tmp)
+    mod._api = api_simulada({del_owner[:40]: [{"number": 116}]}, {116: COMENTADO},
+                            owner="jefa", mergeado_por={116: "jefa"})
+    hallazgos = mod.revisar(base, a_pelo)
+    registros = [h for h in hallazgos if h.startswith(mod.MARCA_REGISTRO)]
+    fallos = [h for h in hallazgos if not h.startswith(mod.MARCA_REGISTRO)]
+    assert len(registros) == 1, hallazgos
+    assert len(fallos) == 1 and "sin PR (push directo)" in fallos[0], fallos
+    # Un solo fallo real basta para el rojo, haya los registros que haya.
+    assert mod.main(["x", base, a_pelo]) == 1
+
+
+@caso("no se puede saber quien mergeo: FAIL-CLOSED, se trata como violacion")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: quien sabe")
+    mod = cargar(tmp)
+    # merged_by no consultable (PR ausente del mapa) aunque el owner si se sepa:
+    # absolver por falta de datos convertiria la guarda en un adorno.
+    mod._api = api_simulada({"*": [{"number": 12}]}, {12: COMENTADO},
+                            owner="jefa", mergeado_por={})
+    fallos = mod.revisar(base, sha)
+    assert len(fallos) == 1, fallos
+    assert not fallos[0].startswith(mod.MARCA_REGISTRO), fallos[0]
+    assert "se trata como violacion" in fallos[0], fallos[0]
+
+
+@caso("tampoco absuelve si el que no se sabe es el OWNER del repo")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: sin owner conocido")
+    mod = cargar(tmp)
+    mod._api = api_simulada({"*": [{"number": 13}]}, {13: COMENTADO},
+                            owner=None, mergeado_por={13: "jefa"})
+    fallos = mod.revisar(base, sha)
+    assert len(fallos) == 1 and "se trata como violacion" in fallos[0], fallos
+
+
+@caso("el PR aprobado no gasta llamadas de merged_by (no le hacen falta)")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("feat: revisado de verdad")
+    mod = cargar(tmp)
+    rutas = []
+    interna = api_simulada({"*": [{"number": 7}]}, {7: APROBADO}, owner="jefa")
+
+    def espia(ruta):
+        rutas.append(ruta)
+        return interna(ruta)
+
+    mod._api = espia
+    assert mod.revisar(base, sha) == []
+    assert not any(r == "repos/{owner}/{repo}" for r in rutas), rutas
 
 
 @caso("commit del tablero (candado sin Project): permitido")

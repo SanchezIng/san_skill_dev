@@ -3,6 +3,160 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-07 — Dos guardas volvían del proyecto donde crecieron, y una no estaba enchufada
+
+Retorno proyecto→kit: `docs_check.py` y `arranque.sh` llevaban semanas mejorando
+en un proyecto real y el kit seguía generando la versión de julio. **La mitad que
+falla siempre no es cómo baja el kit a los proyectos, es cómo suben los arreglos**
+— van dos de tres veces que se descubre por casualidad.
+
+**`docs_check.py` (243 → 359 líneas): el contador del ROADMAP.** El avance está
+escrito a mano en TRES sitios —la tabla de cabecera, la fila de subfases y la
+frase en prosa— y se calcula solo. Ya falló dos veces en el proyecto de origen; la
+segunda es la que justifica la guarda: dos ramas subieron el contador **al mismo
+número por motivos distintos**, git auto-fusionó el texto idéntico sin marcar
+conflicto, y el resultado quedó declarando una subfase menos de las que había. Un
+conflicto lo ve quien mergea; esto no lo ve nadie. Ahora se cuenta por estructura
+—una fase con subfases aporta las suyas, una sin ellas aporta 1— y se coteja
+contra lo declarado, con 1 punto de tolerancia en el % para que un redondeo
+distinto no produzca un rojo que se aprenda a ignorar.
+
+**`arranque.sh` (76 → 160 líneas): el aviso de hooks miraba un solo tipo.** Antes
+comprobaba `pre-push` y que el fichero **existiera**. Dos agujeros: un clon con
+`pre-commit` y sin `pre-push` pasaba callado, y un hook heredado de otro flujo
+daba falso verde —fichero presente, guarda ausente—. Ahora los tipos se **leen**
+de `.pre-commit-config.yaml` en vez de hardcodearse (así un tercero queda cubierto
+solo) y se exige el marcador que pre-commit escribe en su cabecera. Y cuando la
+clave está en YAML de bloque, que estos `sed` no saben leer, **lo dice** en vez de
+callarse: una guarda contra fallos invisibles no puede permitirse uno.
+
+**Lo que apareció al portar, y no venía del origen: las guardas de `docs_check`
+no estaban probadas a través de `main()`.** Los 25 casos llamaban a
+`enlaces_rotos()`, `backlog_incoherente()` y `roadmap_incoherente()` por separado,
+así que **desenchufar cualquiera de las tres dejaba la suite en verde**.
+Comprobado por mutación, no supuesto. Caso 26 añadido: monta un repo donde las
+tres tienen algo que denunciar y exige que las tres salgan. Verificado que muerde
+con las tres mutaciones, una a una. Una guarda desconectada es indistinguible de
+una que pasa, que es el mismo modo de fallo que el fixture a medias del 06-08.
+
+Suite: 26/26 en `test_docs_check.py` (era 25) y `test_arranque.sh` en verde, más
+los otros diez ficheros de test del kit sin tocar. `VERSION` → `2026-08-07`.
+
+## 2026-08-06 (3) — El instalador pisaba la configuración de los tres proyectos reales
+
+`instalar.sh` decidía «aquí ya hay una instalación» mirando dos cosas:
+`SKILLS-PORTABLE/.manifiesto` o la carpeta `SKILLS-PORTABLE/`. **Los tres
+proyectos que usan el kit no tienen ninguna de las dos** — se instalaron antes de
+que esa carpeta existiera, y el propio README dice que la copia de origen «queda
+redundante: puedes borrarla».
+
+Sin rastro, el destino se trataba como **virgen**: ruta de instalación limpia,
+`cp` directo, y la configuración del equipo **pisada sin aviso y sin dejar
+`.nuevo`**. Comprobado ejecutándolo sobre una copia: el `SKILL.md` configurado
+cambia de hash y vuelve a estar lleno de `{{PLACEHOLDERS}}`.
+
+Lo que lo vuelve grave no es el bug, es **contra qué comando estaba**: el único
+que el README ofrece para actualizar. Y la fila «Instalación anterior a los
+manifiestos → conserva todo; nada se pisa» **ya estaba escrita en ese README**.
+La promesa existía; la condición para cumplirla, no.
+
+**Por qué los tests no lo vieron, que es la parte que importa:** el caso 6
+simulaba una instalación pre-manifiesto borrando el manifiesto **pero dejando la
+carpeta**. Con la carpeta ahí quedaba un rastro, el instalador entraba en modo
+actualización y el caso pasaba en verde describiendo un mundo que ningún proyecto
+habita. Un fixture a medias es peor que ninguno: da por cubierto justo lo que no
+lo está.
+
+Ahora el rastro se busca en lo que el instalador escribe **siempre**
+(`.claude/skills/project-kickstart/SKILL.md`, `.claude/hooks/arranque.sh`) y en
+lo que delata el modo protocolo (`.claude/skills/equipo-que-toca/SKILL.md`). De
+paso, **el modo se deduce**: sin manifiesto no hay `# modo=` que leer, y
+quedarse en fábrica dejaría fuera justo las guardas que a esos proyectos les
+faltan — `deriva_kit.py` mide que a los dos de SUNAT les falta el 40% del kit.
+
+5 casos nuevos (44 en la suite; el README decía 37 desde el 07-27). Verificado
+bajando `instalar.sh` a la versión anterior: **fallan 4 de los 5**. El quinto
+—«lo que le faltaba del kit sí llega»— pasa también con el viejo, porque en modo
+instalación limpia se copia todo igual: es una precondición del escenario, no una
+mordida, y se dice para no contarlo como cobertura que no da.
+
+## 2026-08-06 (2) — Nadie podía preguntar en qué se había desviado un proyecto
+
+El kit viaja por copia y a partir de ahí las dos copias evolucionan solas. Ha
+costado dos veces: el 2026-07-29 barber-king llevaba una semana divergiendo en 15
+archivos / 1.157 líneas y se descubrió de casualidad; el 2026-08-06, tres días
+después de un port que se creía completo, `plantillas/hooks/arranque.sh` seguía
+detectando hooks con `grep pre-push` mientras el proyecto ya leía los tipos del
+`.pre-commit-config.yaml`. Las dos veces el fallo no fue portar mal: fue **no
+poder preguntar**.
+
+`deriva_kit.py` responde en segundos, y su primera ejecución sobre los tres
+proyectos reales dice lo que nadie sabía:
+
+| Proyecto | `=` | `~` | `!` divergentes | `-` ausentes |
+|---|---:|---:|---:|---:|
+| barber-king | 21 | 1 | 17 | 1 |
+| api-sunat-scr | 10 | 0 | 13 | **17** |
+| portal-web-api-sunat | 10 | 0 | 15 | **15** |
+
+Los dos de SUNAT **no tienen el 40% del kit**: les faltan `tablero.py`,
+`audit_check.py`, `deriva_ramas.py`, `proteccion_main.py`, sus tests y el hook
+del guardián de seguridad. Llevan ahí desde que se instalaron.
+
+**Lo que hace que el informe sirva: separar `~` de `!`.** El kit escribe
+`{{OWNER}}` donde el proyecto tiene `SanchezIng`, y contar eso como diferencia
+pondría en rojo permanente justo las piezas que más importan —las 3 skills,
+`tablero.py`, `audit_check.py`—. Una línea que solo difiere en la posición de un
+placeholder se clasifica como configuración, no como deriva.
+
+**Y no duplica el mapa de archivos:** instala el kit en un temporal y lee el
+manifiesto que deja el propio instalador. Un detector de deriva que copia el mapa
+del instalador acaba derivando él mismo, que sería el chiste completo.
+
+No es una guarda de CI y el README lo dice: un proyecto vivo siempre tendrá
+divergencia legítima. Sale 1 si la hay para poder encadenarlo, pero se ejecuta a
+mano — antes de portar, después de portar, y antes de creerse que algo está
+sincronizado.
+
+19 casos nuevos en `test_deriva_kit.py`, en el CI. Uno mordió durante el
+desarrollo: un workflow que el equipo activó renombrándolo salía como idéntico
+pero el informe se callaba con qué nombre lo había encontrado.
+
+## 2026-08-06 — `VERSION` decía una cosa y el kit traía otra
+
+Los dos últimos cambios grandes entraron **sin tocar `VERSION` y sin escribir
+aquí**: `ebfab29` (#15), que trajo de BarberCrow la arquitectura del protocolo
+—el log en un fichero por entrada, el tablero que ya no se comitea, el chequeo de
+issues que están fuera del Project— y `a60ef67` (#16), que trajo el ahorro de
+contexto medido allí: **64.051 tokens por ciclo de tarea**, el 53% del
+presupuesto útil de una sesión, casi todo en el `--jq` del `item-list` de
+`/que-toca` (51.807 de esos 64.051).
+
+`VERSION` quedó en `2026-08-04` sobre un kit que ya no era el del 04. Sube a
+**`2026-08-06`**, la fecha del contenido portado — que es la convención que ya
+usaba el 04, no la fecha del merge.
+
+**Qué se rompía, con precisión, porque es menos de lo que parece:** la
+actualización **no** estaba rota. `instalar.sh` compara **hash a hash** con
+`git hash-object`, y la igualdad de versión (línea 68) solo imprime un aviso
+antes de seguir comparando; un proyecto que actualizara habría recibido los
+ficheros nuevos igual. Lo que estaba roto es la **etiqueta**: el manifiesto graba
+`# kit=<version>` en cada destino, y ese sello es el único sitio donde consta qué
+trae un proyecto instalado. Con el sello congelado, la respuesta a «¿este proyecto
+tiene el arreglo de los 51k tokens?» pasa a ser «mira los hashes uno a uno»,
+que es justo lo que el sello existe para evitar.
+
+Es el mismo patrón que las tres entradas del 07-27: **una señal que no se
+actualiza no es una señal, y se aprende a no mirarla.**
+
+Queda una decisión, no un pendiente disfrazado: o el bump entra en el propio port
+como paso obligatorio, o `VERSION` se deriva del hash del manifiesto y deja de
+poder mentir. Lo segundo es más trabajo y no se hace hoy.
+
+**No se toca `kit-construction-project/.manifiesto`**, cuyo encabezado dice
+`# kit=2026-07-26`: ese fichero es la foto de una instalación pasada (la de
+barber-king), no la versión del catálogo. Cambiarlo sería falsear el registro que
+va a servir para engancharlo.
 ## 2026-07-28 — El kit escribía órdenes que su lector no puede cumplir
 
 El usuario trajo un prototipo HTML cuyo texto decía «abre el prototipo y míralo

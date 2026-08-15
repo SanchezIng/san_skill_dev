@@ -146,7 +146,13 @@ def comentario(pr: dict, detras: int, dias: int) -> str:
         f"falso. Resolverlo a ciegas con `--theirs`/`--ours` mete una regresión **con "
         f"el CI en verde**, porque ningún test cubre eso.",
         "",
-        "Ponerla al día ahora:",
+        f"**No hace falta ponerla al día para que te revisen.** La rama tiene que "
+        f"estar al día para **mergear**, no antes: se revisa el diff contra su base. "
+        f"Perseguir a `{base}` mientras esperas review es una carrera que no se gana "
+        f"—cada actualización reinicia la verificación y, mientras, `{base}` vuelve a "
+        f"moverse—, y encima invalida la review que ya te hicieron.",
+        "",
+        "Cuando vayas a mergear (o si quieres adelantarte porque ves conflicto gordo):",
         "",
         "```bash",
         f"git fetch origin && git rebase origin/{base}     # o: git merge origin/{base}",

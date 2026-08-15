@@ -15,23 +15,42 @@
 >
 > **Todo entra por PR, sin excepciones.** El reclamo de una tarea sí debe verse al
 > instante, y por eso el candado vive en GitHub (assignee + estado del Project):
-> es atómico y visible al segundo, sin necesidad de empujar nada. El tablero del
-> repo (`progreso/tablero-equipo.md`) es un **espejo generado** de eso
-> (`python3 scripts/tablero.py --generar`) y viaja en la rama, dentro del PR —
-> llegar unos minutos tarde no rompe nada, porque nadie decide mirándolo. Así
-> `main` puede estar protegida al 100%.
+> es atómico y visible al segundo, sin necesidad de empujar nada. Así `main` puede
+> estar protegida al 100%.
 >
-> **La tabla del tablero no se edita a mano; el log de reclamos no se genera nunca.**
-> Estado → se genera. Por qué se atascó algo → lo escribes tú.
+> **El tablero (`progreso/tablero-equipo.md`) NO se comitea** — está en
+> `.gitignore`. Es un espejo del Project y se regenera cuando lo quieras ver con
+> `python3 scripts/tablero.py --generar`, que ensambla la tabla **y** el log.
 >
-> *(Si este proyecto NO usa GitHub Project, el tablero es el candado y sí va directo
-> a `main`; entonces `main` no puede protegerse del todo. Un modo u otro, no ambos.)*
+> **El log sí se comitea, en `progreso/log/`, UN FICHERO POR ENTRADA.** Nunca se
+> edita una entrada existente: se crea una nueva. Así dos ramas que escriben a la
+> vez no pueden conflictar — que es exactamente lo que pasaba antes, cuando tabla
+> y log compartían archivo y ese archivo lo tocaba toda rama (en el piloto: 3 PRs
+> abiertos, los 3 conflictando ahí el mismo día).
+>
+> Estado → se genera. Por qué se atascó algo → lo escribes tú, en su propio fichero.
+>
+> *(Si este proyecto NO usa GitHub Project, el tablero es el candado, hay que
+> sacarlo del `.gitignore` y sí va directo a `main`; entonces `main` no puede
+> protegerse del todo. Un modo u otro, no ambos.)*
 
 ## 📜 Reglas del sistema de conocimiento
 
 - **Regla de densidad:** este CLAUDE.md solo gana líneas si otro archivo las pierde
   — es un MAPA, no una enciclopedia. Lo que madure baja a `docs/` y deja un puntero.
   Se lee entero en cada sesión: cada línea de más es contexto que se paga siempre.
+  **Pero el criterio operativo es «que no crezca», no «adelgázalo»:** con el
+  proyecto rodado, este fichero acaba siendo el más citado del repo —ADRs,
+  backlog, handoffs y hasta comentarios de código apuntan a él como
+  `CLAUDE.md § Seccion`, y algunos **por número de regla**—. Antes de mover algo
+  fuera, **censa quién apunta dentro** (`grep -rn "CLAUDE.md §"`) y no toques un
+  nombre de sección ni una numeración que alguien cite: no lo vigila ningún
+  compilador. Medido en un proyecto real: 43 referencias, y el recorte disponible
+  sin romper ninguna era del 2,8%.
+- **Lo que el compilador vigila no se copia en prosa:** paletas de color, rutas,
+  constantes, comandos. La copia deriva y nadie se entera — en el proyecto donde
+  se midió lo anterior, la paleta de este fichero omitía media paleta y mandaba a
+  un fichero de configuración que ya no existía. Se apunta al fichero real.
 - **El porqué en el punto de uso:** toda decisión no-obvia en código referencia su
   issue o ADR en el comentario (`T-nnn/ADR-nnnn`). Regla de PR. Es la diferencia
   entre leer una función y adivinar, o saltar directo a la historia completa.
@@ -40,8 +59,13 @@
   el backlog conserva `Estado:`, si marca `Done` una tarea con issue abierto).
   El rigor lo fija `MODO_BACKLOG` en `scripts/docs_check.py`; la guarda se prueba
   a sí misma en CI (`scripts/test_docs_check.py`) antes de juzgar el repo.
-- **Rotación:** log del tablero > ~400 líneas → archivar por periodo; entradas
-  viejas de "actualización previa" del estado → histórico.
+- **Rotación:** el log ya no necesita archivarse (un fichero por entrada en
+  `progreso/log/`; crecer no estorba a nadie). Entradas viejas de "actualización
+  previa" del estado → histórico.
+- **Antes de cambiar una frontera, mira dónde se ENSEÑA**, no solo dónde se usa.
+  El compilador vigila el código; la prosa no la vigila nadie, y en el piloto
+  cambiar una función de acceso a datos dejó nueve documentos enseñando el camino
+  viejo — el peor de ellos no estaba en la lista de nadie.
 - **Una sola fuente de verdad:** el conocimiento compartido vive en el repo
   (versionado, revisado por PR). Nada de wikis paralelas ni memorias externas
   para lo que el equipo debe compartir.
@@ -66,7 +90,7 @@
 |---|---|---|
 | Decisiones de arquitectura (con alternativas descartadas) | `docs/adr/` | Largo plazo |
 | Bugs y tareas (contexto, alcance, resolución) | `docs/backlog.md` + Issues | Mediano |
-| Cronología del equipo (quién, qué, cuándo) | log del tablero | Mediano |
-| Foto del presente | `progreso/estado-actual.md` | Se sobrescribe |
+| Cronología del equipo (quién, qué, cuándo) | `progreso/log/` (un fichero por entrada) | Mediano |
+| Foto del presente | Project + `progreso/decisiones/` y `pendientes/` | Un fichero por item: se añade, no se reescribe |
 | Contexto para retomar un módulo (TODOs, trampas) | handoffs | Corto: se consume al retomar |
 | Reglas y rumbo global | `CLAUDE.md` + especificaciones | Largo plazo |

@@ -176,6 +176,186 @@ def _():
     assert len(fallos) == 1 and "no es valido" in fallos[0], fallos
 
 
+# --------------------------------------------------------------------------
+# Contador del ROADMAP. Aqui no hay `gh` que simular: se compara
+# el documento consigo mismo, asi que los casos son ficheros de verdad.
+# --------------------------------------------------------------------------
+
+def ejecutar_roadmap(roadmap, ruta="ROADMAP.md", crear=True):
+    """Devuelve la lista de fallos de roadmap_incoherente()."""
+    dc = cargar()
+    with tempfile.TemporaryDirectory() as tmp:
+        raiz = Path(tmp)
+        if crear:
+            (raiz / "ROADMAP.md").write_text(roadmap, encoding="utf-8")
+        dc.RAIZ = raiz
+        dc.RUTA_ROADMAP = ruta
+        return dc.roadmap_incoherente()
+
+
+def roadmap(completadas=3, totales=4, avance=75, prosa=None, cuerpo=None):
+    """ROADMAP sintetico: F1 con dos subfases (una hecha), F2 con una, F3 sin subfases."""
+    cabecera = (
+        "# ROADMAP\n\n"
+        "| Metrica | Valor |\n|---|---|\n"
+        f"| Subfases totales | {totales} |\n"
+        f"| Completadas | {completadas} / {totales} |\n"
+        f"| % avance | {avance}% |\n\n"
+    )
+    if prosa is not None:
+        cabecera += f"Las {prosa}, en orden de cierre: las de F1 y F3.\n\n"
+    return cabecera + (cuerpo if cuerpo is not None else (
+        "### F1: Base\n**Estado:** ✅ Completada\n- ✅ F1.1 — algo\n- ✅ F1.2 — otra cosa\n\n"
+        "### F2: POS\n**Estado:** ⏳ Pendiente\n- ⏳ F2.1 — pendiente\n\n"
+        "### F3: Catalogo\n**Estado:** ✅ Completada — sin subfases\n"
+    ))
+
+
+@caso("ROADMAP coherente: no muerde")
+def _():
+    assert ejecutar_roadmap(roadmap()) == []
+
+
+@caso("declara MENOS completadas de las que marca: MUERDE (el fallo real que la motivo)")
+def _():
+    fallos = ejecutar_roadmap(roadmap(completadas=2, avance=50))
+    assert any("completadas" in f and "3" in f for f in fallos), fallos
+
+
+@caso("el total de subfases no cuadra con lo que lista: MUERDE")
+def _():
+    fallos = ejecutar_roadmap(roadmap(totales=9, avance=33))
+    assert any("total" in f for f in fallos), fallos
+    assert any("'Subfases totales' dice 9" in f for f in fallos), fallos
+
+
+@caso("una fase SIN subfases cuenta como una, y su estado es el de su linea")
+def _():
+    # Misma estructura, pero F3 pendiente: 2 de 4, no 3.
+    cuerpo = (
+        "### F1: Base\n**Estado:** ✅ Completada\n- ✅ F1.1 — algo\n- ✅ F1.2 — otra\n\n"
+        "### F2: POS\n**Estado:** ⏳ Pendiente\n- ⏳ F2.1 — pendiente\n\n"
+        "### F3: Catalogo\n**Estado:** ⏳ Pendiente — sin subfases\n"
+    )
+    assert ejecutar_roadmap(roadmap(completadas=2, avance=50, cuerpo=cuerpo)) == []
+
+
+@caso("% avance mal: MUERDE")
+def _():
+    fallos = ejecutar_roadmap(roadmap(avance=99))
+    assert any("% avance" in f for f in fallos), fallos
+
+
+@caso("% avance a 1 punto: NO muerde (redondeo, no defecto)")
+def _():
+    assert ejecutar_roadmap(roadmap(avance=76)) == []
+
+
+@caso("la frase en prosa contradice a las marcas: MUERDE")
+def _():
+    fallos = ejecutar_roadmap(roadmap(prosa=7))
+    assert any("en orden de cierre" in f for f in fallos), fallos
+
+
+@caso("la frase en prosa coherente: no muerde")
+def _():
+    assert ejecutar_roadmap(roadmap(prosa=3)) == []
+
+
+@caso("marcas dentro de un bloque de codigo: no cuentan")
+def _():
+    cuerpo = (
+        "### F1: Base\n**Estado:** ✅ Completada\n- ✅ F1.1 — algo\n- ✅ F1.2 — otra\n\n"
+        "```\n- ✅ F9.9 — ejemplo de formato, no es una subfase\n```\n\n"
+        "### F2: POS\n**Estado:** ⏳ Pendiente\n- ⏳ F2.1 — pendiente\n\n"
+        "### F3: Catalogo\n**Estado:** ✅ Completada — sin subfases\n"
+    )
+    assert ejecutar_roadmap(roadmap(cuerpo=cuerpo)) == []
+
+
+@caso("vinetas bajo un '## ' posterior a la ultima fase: no cuentan (lo cazo una review)")
+def _():
+    # La seccion de una fase termina tambien en `## `, no solo en `### `. Si no,
+    # todo lo que va detras de la ultima fase sigue dentro de su bloque y estas
+    # dos vinetas subirian el total a 6 en silencio — y entonces la guarda
+    # exigiria que la tabla escrita a mano cuadre con el numero inflado.
+    cuerpo = (
+        "### F1: Base\n**Estado:** ✅ Completada\n- ✅ F1.1 — algo\n- ✅ F1.2 — otra\n\n"
+        "### F2: POS\n**Estado:** ⏳ Pendiente\n- ⏳ F2.1 — pendiente\n\n"
+        "### F3: Catalogo\n**Estado:** ✅ Completada — sin subfases\n\n"
+        "## Bitacora de cierres\n- ✅ F1.1 — cerrada el 2026-07-27, commit abc1234\n\n"
+        "## Hitos clave\n- ✅ F2.1 — hito M1 desplegado\n"
+    )
+    assert ejecutar_roadmap(roadmap(cuerpo=cuerpo)) == []
+
+
+@caso("ROADMAP ausente: lo dice, no se calla")
+def _():
+    fallos = ejecutar_roadmap("", crear=False)
+    assert len(fallos) == 1 and "no existe" in fallos[0], fallos
+
+
+@caso("documento sin fases: no da veredicto en falso")
+def _():
+    fallos = ejecutar_roadmap("# ROADMAP\n\nsin nada que contar\n")
+    assert len(fallos) == 1 and "no puede emitir veredicto" in fallos[0], fallos
+
+
+@caso("RUTA_ROADMAP vacia: la comprobacion se apaga entera")
+def _():
+    assert ejecutar_roadmap(roadmap(completadas=99), ruta="") == []
+
+
+# --------------------------------------------------------------------------
+# El cableado de main().
+#
+# Todos los casos de arriba llaman a las funciones POR SEPARADO, asi que
+# ninguno se entera si una deja de estar enchufada en `main()`. Comprobado por
+# mutacion al portar este fichero: quitando `roadmap_incoherente()` de la linea
+# de `main` la suite seguia 25/25 en verde. Una guarda desconectada es
+# indistinguible de una que pasa, y es justo el modo de fallo que este fichero
+# existe para impedir.
+#
+# Este caso monta un repo donde las TRES tienen algo que denunciar y exige que
+# las tres salgan, asi que desenchufar cualquiera pone rojo.
+# --------------------------------------------------------------------------
+
+@caso("main() llama a las tres guardas: desenchufar cualquiera pone rojo")
+def _():
+    dc = cargar()
+    with tempfile.TemporaryDirectory() as tmp:
+        raiz = Path(tmp)
+        (raiz / "docs").mkdir(parents=True)
+        # 1. Enlace roto.
+        (raiz / "README.md").write_text("[a ninguna parte](docs/no-existe.md)\n", encoding="utf-8")
+        # 2. Backlog que declara un issue inexistente.
+        (raiz / "docs" / "backlog.md").write_text("### T-001 - [A] Login (#404)\n", encoding="utf-8")
+        # 3. ROADMAP cuyo contador contradice a sus propias marcas.
+        (raiz / "ROADMAP.md").write_text(roadmap(completadas=99), encoding="utf-8")
+
+        # `enlaces_rotos()` solo audita lo TRACKEADO (`git ls-files`), asi que
+        # sin repo se salta la revision y este caso dejaria de cubrirla.
+        subprocess.run(["git", "init", "-q"], cwd=raiz, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=raiz, check=True)
+
+        dc.RAIZ = raiz
+        dc.ARBOLES = ["README.md", "ROADMAP.md", "docs"]
+        dc.RUTA_BACKLOG = "docs/backlog.md"
+        dc.RUTA_ROADMAP = "ROADMAP.md"
+        dc.MODO_BACKLOG = "espejado"
+        dc.os.environ["GH_TOKEN"] = "test"
+        dc.subprocess.run = GhSimulado([], existentes=set())
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            codigo = dc.main()
+        salida = buf.getvalue()
+
+    assert codigo == 1, f"main() devolvio {codigo} teniendo tres fallos servidos"
+    assert "no-existe.md" in salida, f"falta el enlace roto:\n{salida}"
+    assert "#404" in salida, f"falta el fallo de backlog:\n{salida}"
+    assert "ROADMAP.md" in salida, f"falta el fallo del ROADMAP:\n{salida}"
+
+
 def main() -> int:
     fallidos = 0
     for nombre, prueba in CASOS:

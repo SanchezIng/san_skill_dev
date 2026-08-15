@@ -35,17 +35,52 @@ ACTUALIZADOS=""
 
 MODO_PREVIO="$(sed -n 's/^# modo=//p' "$MANIFIESTO" 2>/dev/null || true)"
 
+# Rastros de que el kit YA se instalo aqui, aunque no haya manifiesto ni
+# SKILLS-PORTABLE/. Son los archivos que el instalador escribe SIEMPRE (los dos
+# primeros, en los dos modos) y el que delata el modo protocolo.
+#
+# Por que hace falta mirar esto y no solo SKILLS-PORTABLE/: las instalaciones
+# anteriores a que existiera esa carpeta —o aquellas donde alguien la borro, que
+# es lo natural cuando el README dice que la copia de origen es redundante— no
+# dejan ninguno de los dos rastros que se miraban. Y sin rastro, el instalador
+# las trataba como destino VIRGEN: ruta de instalacion limpia, `cp` directo,
+# configuracion del equipo PISADA sin aviso y sin `.nuevo`.
+#
+# Medido el 2026-08-06 sobre los tres proyectos reales que usan el kit
+# (barber-king, api-sunat-scr, portal-web-api-sunat): NINGUNO tiene
+# SKILLS-PORTABLE/, y los tres difieren del kit en 13-17 archivos. O sea, el
+# unico comando que el README ofrece para actualizar habria borrado la
+# configuracion de los tres. El README ya prometia lo contrario ("Instalacion
+# anterior a los manifiestos: conserva todo; nada se pisa") — la promesa existia,
+# la condicion para cumplirla no.
+instalacion_previa() {
+    [ -f "$MANIFIESTO" ] && return 0
+    [ -d "$DESTINO/SKILLS-PORTABLE" ] && return 0
+    [ -f "$DESTINO/.claude/skills/project-kickstart/SKILL.md" ] && return 0
+    [ -f "$DESTINO/.claude/hooks/arranque.sh" ] && return 0
+    [ -f "$DESTINO/.claude/skills/equipo-que-toca/SKILL.md" ] && return 0
+    return 1
+}
+
 # Si ya hay una instalacion aqui, SIEMPRE se actualiza, aunque no lo pidan.
 # Nadie recuerda el flag: el reflejo es repetir el comando con el que instalo.
 # Que ese reflejo destruya la configuracion del equipo es exactamente el fallo
 # que esto viene a arreglar, asi que la proteccion no puede depender de acordarse.
-if [ -f "$MANIFIESTO" ] || [ -d "$DESTINO/SKILLS-PORTABLE" ]; then
+if instalacion_previa; then
     ACTUALIZAR=1
     if [ "$MODO" != "--actualizar" ]; then
         echo "(ya hay una instalacion del kit aqui: se ACTUALIZA en vez de reinstalar,"
         echo " para no pisar lo que tengais configurado)"
         echo
     fi
+fi
+
+# Sin manifiesto no hay `# modo=` que leer, y dejarlo vacio degrada a una
+# instalacion de fabrica: las skills del protocolo y las guardas que le faltan al
+# proyecto no llegarian, que es justo lo que se viene a arreglar. Se deduce del
+# unico rastro que lo distingue.
+if [ -z "$MODO_PREVIO" ] && [ -f "$DESTINO/.claude/skills/equipo-que-toca/SKILL.md" ]; then
+    MODO_PREVIO="--protocolo"
 fi
 
 case "$MODO" in
