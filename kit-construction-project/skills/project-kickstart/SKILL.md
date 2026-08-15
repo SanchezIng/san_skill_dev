@@ -74,9 +74,24 @@ Claude Code, traduce:
 | `present_files` (Paso 10) | esa misma | **escribe los archivos en el repo** y lista al final lo escrito |
 | skill `docx` (Paso 9) | disponible | **no existe**: no ofrezcas "Markdown + Word" en el Paso 2 |
 | "directorio temporal de trabajo" | el temporal | la **raíz del proyecto** |
+| **mirar un diseño** (prototipo, mockup, `.html`) | se ve renderizado | **no hay renderizador**: se LEE el archivo. Si es un artifact *bundled*, primero hay que desempaquetarlo — ver abajo |
 
 En Claude Code no hay entrega: hay archivos en disco y un commit. Todo lo demás del
 flujo se aplica igual.
+
+**El caso del diseño merece su párrafo**, porque es el que ya costó una sesión
+entera. Un HTML no se "abre y se mira": se lee. Y si el usuario trae un artifact
+*bundled* de claude.ai, un `Read` devuelve base64 y nada más — la UI vive dentro de
+`<script type="__bundler/template">` y los assets en un manifiesto JSON. Hay que
+escribir un desempaquetador (~40 líneas: parsea `__bundler/manifest`, decodifica los
+assets, extrae el template) y leer de ahí la navegación, las paletas y el modelo de
+datos implícito.
+
+**Ese desempaquetador se deja en el repo generado** —`scripts/`, con una línea en el
+README diciendo qué hace— no en la sesión. Si se queda en la sesión, la próxima
+tiene que rehacerlo, y eso es exactamente lo que pasó. Y lo que escribas en la guía
+no dice «abre el prototipo»: dice el comando que hay que ejecutar. Ver la regla 8 de
+«Reglas de calidad de los archivos generados», que es donde esto se generaliza.
 
 ### B. Localiza el paquete — y **para** si no está
 
@@ -110,6 +125,11 @@ Si el usuario tiene archivos, pídele que los adjunte y léelos antes de seguir.
 - Pre-rellenar parte de la entrevista (no preguntes lo que ya está claro en el contexto)
 - Detectar si ya hay decisiones técnicas tomadas (stack, arquitectura, datos)
 - Identificar contradicciones o ambigüedades y preguntarlas explícitamente
+
+**Si entre ese material hay un diseño** (HTML, mockup, prototipo), lee ahora
+«Antes del Paso 0 → A»: no se abre, se lee, y si viene *bundled* hay que
+desempaquetarlo. Lo que resuelvas aquí acaba en la guía, así que resuélvelo en
+términos de un comando y no de «ábrelo y míralo» (regla 8 de calidad).
 
 Si trae contexto MUY completo (ej: un PRD detallado), ofrece pasar a **modo rápido** automáticamente.
 
@@ -363,11 +383,11 @@ Si el usuario eligió "Markdown + Word" (solo posible donde exista la skill `doc
 python3 <paquete>/skills/project-kickstart/verificar_kit.py <directorio-generado>
 ```
 
-Comprueba contra `.kickstart-state.json` que estén los archivos que esta entrevista obligaba a generar, que no quede ningún `{{PLACEHOLDER}}` sin rellenar, que los enlaces entre documentos resuelvan y que CLAUDE.md traiga sus secciones (mapa, archivos críticos, indicador de cierre). Si sale en rojo, **arregla y repite**: un documento prometido y no escrito aparece semanas después, cuando alguien lo busca porque el índice lo cita, y para entonces el proyecto ya se apoyó en él.
+Comprueba contra `.kickstart-state.json` que estén los archivos que esta entrevista obligaba a generar, que no quede ningún `{{PLACEHOLDER}}` sin rellenar, que los enlaces entre documentos resuelvan, que CLAUDE.md traiga sus secciones (mapa, archivos críticos, indicador de cierre) y que no hayas escrito ninguna orden que su lector no pueda cumplir —«abre el prototipo» sin el comando al lado, regla 8 de calidad—. Si sale en rojo, **arregla y repite**: un documento prometido y no escrito aparece semanas después, cuando alguien lo busca porque el índice lo cita, y para entonces el proyecto ya se apoyó en él.
 
 Mira solo lo que ha generado esta sesión: `SKILLS-PORTABLE/` y `.claude/` quedan fuera del escaneo porque son el kit **instalado**, y sus `{{...}}` son plantilla. Así que si sale en rojo, señala algo tuyo. **No lo rodees** —ni copiando el proyecto a un temporal, ni filtrando la salida— y no lo entregues como verde: si crees que un fallo es ruido, dilo en la entrega con el fallo delante.
 
-Si el script no está (paquete incompleto), dilo y haz esas cuatro comprobaciones a mano — no entregues sin comprobar.
+Si el script no está (paquete incompleto), dilo y haz esas cinco comprobaciones a mano — no entregues sin comprobar.
 
 Entrega TODOS los archivos generados: con `present_files` en claude.ai, o **escribiéndolos en el repo** si estás en Claude Code. En el mensaje final incluye:
 
@@ -426,6 +446,21 @@ Detalle en `references/practicas_dev.md`.
 5. CLAUDE.md incluye el mapa de dónde encontrar cada cosa en los otros archivos para optimizar tokens
 6. Idioma consistente en todos los archivos. Si es español, todo en español (excepto nombres de archivos/variables/funciones que siempre son en inglés)
 7. La estructura de carpetas inicial es MÍNIMA. Nunca crear carpetas para fases futuras
+8. **Todo lo que escribas tiene que ser ejecutable por quien va a ejecutarlo.** El material de entrada (un PRD, un HTML de diseño, unos requerimientos) trae instrucciones escritas para un humano con navegador y pantalla. No las copies: **tradúcelas al procedimiento que sí funciona** donde va a leerse el kit, que es Claude Code. Y si para entenderlas tú tuviste que fabricar una herramienta, esa herramienta **se queda en el repo** — `scripts/`, citada desde donde haga falta— no en la sesión, que se cierra
+
+> **Por qué es inviolable y no una recomendación.** En la primera ejecución real
+> entró un prototipo HTML cuyo texto decía «abre el prototipo y míralo antes de
+> maquetar». Se copió literal a ~16 subfases de la guía. Claude Code no tiene
+> renderizador: ninguna de esas 16 se podía cumplir. La sesión que lo detectó
+> escribió un desempaquetador para leerlo, resolvió su parte… y se lo llevó al
+> cerrar. El repo quedó con 16 órdenes imposibles y sin la herramienta que las
+> habría hecho posibles.
+>
+> El kit no controla lo que entra —es material arbitrario del usuario y nunca lo
+> va a controlar— pero **sí controla lo que sale**. Ahí es donde se corta.
+>
+> `verificar_kit.py` lo comprueba en el Paso 10: una orden de mirar un diseño sin
+> el comando al lado sale roja, y el kit no se entrega así.
 
 ## Persistencia del progreso
 
