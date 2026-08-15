@@ -70,19 +70,24 @@ python3 kit-construction-project/kickstart_check.py        # coherencia del kick
 sh      kit-construction-project/test_instalar.sh          # el ciclo real de instalación
 ```
 
-Diez suites, **225 casos**, todas probando también que muerden:
+Doce suites, **320 casos**, todas probando también que muerden. Cifras
+remedidas ejecutando el 2026-08-15: la tabla llevaba cuatro caducadas y le
+faltaba una suite entera, porque una tabla escrita a mano envejece con cada PR
+que añade un caso. Cada suite imprime su recuento al correr — esa es la buena:
 
 | Suite | Casos | Qué protege |
 |---|---|---|
-| `test_tablero.py` | 31 | IDs del Project, mover tarjetas, generar el tablero sin pisar el log |
+| `test_tablero.py` | 36 | IDs del Project, mover tarjetas, generar el tablero sin pisar el log |
+| `test_estado.py` | 15 | las tres comprobaciones del reclamo: tope que miente, titulo vivo del issue y las dos formas de ser invisible |
 | `test_kickstart_check.py` | 36 | que la guarda del kickstart no acuse en falso ni calle |
 | `test_audit_check.py` | 26 | los cuatro modos de fallo de la allowlist, y fallar cerrado |
-| `test_instalar.sh` | 37 | instalar → configurar → actualizar ×2 → reconciliar, que el repaso llegue en las tres rutas y que un proyecto ya configurado salga limpio |
+| `test_instalar.sh` | 44 | instalar → configurar → actualizar ×2 → reconciliar, que el repaso llegue en las tres rutas y que un proyecto ya configurado salga limpio |
 | `test_verificar_kit.py` | 35 | que el kit **generado** tenga lo prometido, sin placeholders sueltos, sin órdenes que su entorno no pueda cumplir — y que las plantillas del kit **instalado** no cuenten como fallos |
 | `test_deriva_ramas.py` | 18 | avisar una vez por PR, y no callar cuando no pudo mirar |
-| `test_proteccion_main.py` | 20 | commits sin PR, y que la excepción de trabajar solo caduque |
-| `test_arranque.sh` | 13 | que las guardas sin activar no se queden pendientes en silencio |
-| `test_docs_check.py` | 12 | enlaces rotos y coherencia backlog↔issues |
+| `test_deriva_kit.py` | 18 | en qué se ha desviado un proyecto respecto al kit, separando lo configurado de lo divergente |
+| `test_proteccion_main.py` | 25 | commits sin PR, y que la excepción de trabajar solo caduque |
+| `test_arranque.sh` | 32 | que las guardas sin activar no se queden pendientes en silencio |
+| `test_docs_check.py` | 26 | enlaces rotos y coherencia backlog↔issues |
 | `test_recordar-seguridad.sh` | 9 | el hook de seguridad al tocar código |
 
 Las corre [`.github/workflows/kit.yml`](.github/workflows/kit.yml) en cada push y

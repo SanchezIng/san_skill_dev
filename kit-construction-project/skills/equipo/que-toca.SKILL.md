@@ -17,7 +17,7 @@ preparación o resumen.
 
 | Qué | Valor |
 |---|---|
-| Project | `gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --limit 500` — **siempre con `--jq`**, ver paso 3 |
+| Project | para reclamar, `python3 scripts/estado.py` (pasos 2-3). A mano, `gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --limit 500` y **siempre con `--jq`** — ver el desplegable de los pasos 2-3 |
 | IDs del Project | **se resuelven solos**: `python3 scripts/tablero.py` |
 | Ramas | `{{PREFIJO_RAMA}}` |
 
@@ -34,103 +34,77 @@ git checkout main && git pull origin main
 
 Tablero y handoffs frescos. Si hay cambios locales sin commitear, resuélvelos antes.
 
-## Paso 2 — ¿Ya tiene tarea el dev?
+## Pasos 2-3 — Qué hay para reclamar (una sola pasada)
 
 ```bash
-gh issue list --state open --assignee @me --limit 200 --json number,title
+python3 scripts/estado.py
 ```
 
-Si ya tiene una `En progreso` asignada → **retomarla** (WIP máx 1-2), no reclamar otra.
-Salvo que el dev haya pedido una tarea concreta ("toma T-nnn"): en ese caso esa es la elegida
-(verificar igualmente que está Disponible y sin assignee).
+Responde de una vez las cuatro preguntas del reclamo: **qué tienes ya asignado**
+(WIP máx 1-2 — si tienes una `En progreso`, **retómala**, no reclames otra),
+**qué está Disponible y sin dueño** ordenado por número, **qué issues abiertos
+están fuera del Project** y los avisos. Si el dev pide una concreta
+(«toma T-nnn»), esa es la elegida: comprueba igualmente que sale como libre.
 
-## Paso 3 — Buscar tarea disponible
+**Los avisos no son decoración.** Cada uno era antes una comprobación que había
+que acordarse de hacer:
+
+| Aviso | Qué significa y qué haces |
+|---|---|
+| `... = el tope: HAY MAS y no se ven` | la lista viene cortada. Sube `TOPE` en el script y repite. **Nunca decidas sobre una lista truncada**: da por libre lo que otro ya tiene |
+| `Disponible(s) CON assignee` | estado y dueño no cuadran — el candado son las dos cosas, no una |
+| `Issues abiertos FUERA del Project (N)` | tareas reales que nadie puede reclamar; se arreglan abajo |
+| `item(s) SIN estado en el Project` | la otra forma de ser invisible: la tarjeta existe pero sin `Status`, así que no sale como Disponible ni como fuera del Project. Ponle el estado que le toque |
+| `borrador(es) Disponible sin issue detrás` | una nota suelta del Project, no una tarea: no hay issue que asignar. Conviértela en issue o sácala de Disponible |
+
+> **Por qué un script y no cinco `gh` a mano:** las tres comprobaciones que hace
+> dependían antes de que el agente se acordara, y una ya falló de verdad en el
+> proyecto donde nació — el `.title` de la tarjeta es una copia congelada que no
+> sigue los renombrados del issue, y en un caso decía `T-062` cuando la tarea era
+> la `T-072`. Reclamar por ese número es reclamar otra cosa; el script lee
+> `.content.title` siempre. El ahorro de contexto (~1.600 tok por reclamo) es la
+> razón menor, y se dice para que nadie lo defienda por ahí.
+
+<details>
+<summary><b>Si te toca hacerlo a mano</b> (script ausente, o depurando): las tres trampas</summary>
 
 ```bash
-# Estado por tarea. Da dos cosas de una vez: el TOTAL de items (para detectar el
-# tope) y solo las candidatas, ya filtradas. El limite va alto A PROPOSITO: por
-# defecto gh trae 30.
-#
-# El `--jq` NO es cosmetico. Sin el, este comando IMPRIME todos los items con su
-# `body` integro para elegir UNO, y se quedan en el contexto el resto de la
-# sesion. Medido en un proyecto real de ~90 tareas: 186.932 chars (~51.900
-# tokens) frente a 427 (~119). Con ventana de 200k y la regla de cerrar al 60%,
-# la version sin filtrar se lleva el 43% del presupuesto util de la sesion.
-# Escala con el numero de tareas, asi que solo empeora.
-#
-# Ojo con lo que hace y lo que no: `--jq` filtra la SALIDA, no la peticion. La
-# respuesta de la API sigue trayendo los items enteros. Lo que se ahorra es
-# contexto, que es el problema real aqui — pero no confundirlo con el filtro
-# server-side de la linea de abajo (`--search "no:assignee"`), que es otra cosa.
-#
-# Este comando TAMBIEN tiene filtro server-side (`--query "status:Disponible"`) y
-# NO se usa a proposito: con el, `.items|length` pasaria a contar solo las
-# candidatas y se perderia la deteccion del tope de mas abajo. Se prefiere pagar
-# la respuesta entera y quedarse con el total honesto.
-#
-# `(.assignees // [])` no sobra: hay items con `assignees` a null y `join` sobre
-# null aborta el filtro entero — imprime el total y NADA mas. Falla de forma
-# ruidosa, pero se parece demasiado a "no hay tareas disponibles".
-#
-# El titulo se lee de `.content.title`, NO del `.title` del item: ese segundo es
-# una copia congelada al añadir la tarjeta y NO sigue los renombrados del issue.
-# En el proyecto donde se midio esto habia 9 items desincronizados, y en uno el
-# item decia una tarea y el issue decia otra REAL distinta: elegir por ese numero
-# es reclamar otra cosa.
-#
-# El `sort_by` esta porque la API no devuelve orden por numero y el criterio de
-# eleccion de abajo es "la de menor numero".
 gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 500 --jq '
   "items en el Project: \(.items|length)",
   ([.items[] | select(.status=="Disponible")] | sort_by(.content.number) | .[]
             | [.content.number, ((.assignees // []) | join(",")), .content.title] | @tsv)'
-
-# Quien NO tiene dueño. Filtra el SERVIDOR, no nosotros: traerse todos los
-# issues y descartar aqui es lo que hacía que se colaran los de más allá del tope.
-gh issue list --state open --search "no:assignee" --limit 500 --json number,title
 ```
 
-**Antes de concluir nada, comprueba que las listas no vienen cortadas:** si
-alguna devuelve exactamente tantos elementos como el `--limit`, es que hay más y
-no los estás viendo. En ese caso **sube el límite y repite** — nunca decidas
-sobre una lista truncada.
+1. **El `--jq` no es cosmético.** Sin él, este comando imprime todos los items con
+   su `body` íntegro para elegir UNO, y se quedan en el contexto el resto de la
+   sesión. Medido en un proyecto real de ~90 tareas: 186.932 chars (~51.900 tok)
+   frente a 427 (~119) — el 43% del presupuesto útil de una ventana de 200k con
+   la regla de cerrar al 60%. Escala con el número de tareas, así que solo empeora.
+   Ojo con lo que hace: `--jq` filtra la **salida**, no la petición; lo que ahorra
+   es contexto. El filtro server-side (`--query "status:Disponible"`) existe y
+   **no** se usa, porque dejaría `.items|length` contando solo candidatas y se
+   perdería la detección del tope.
+2. **El tope miente en silencio.** Por eso se imprime `items en el Project: N`
+   antes de las candidatas: recortar la salida te ahorra contexto pero te
+   quitaría de la vista el síntoma. Si ese número iguala al `--limit`, hay más y
+   no los ves.
+3. **`(.assignees // [])` no sobra:** hay items con `assignees` a null, y `join`
+   sobre null aborta el filtro entero — imprime el total y NADA más. Falla
+   ruidosamente, pero se parece demasiado a «no hay tareas disponibles».
 
-> Por eso el primer comando imprime `items en el Project: N` antes de las
-> candidatas: recortar la salida te ahorra el contexto, pero también te
-> quitaría de la vista el síntoma del tope. Si ese número iguala al `--limit`,
-> hay más y el filtro los está descartando sin que se note. El total se mantiene
-> visible precisamente porque el detalle deja de estarlo.
-
-> Por qué este aviso, y por qué el filtro va en el servidor: antes se pedían
-> **todos** los issues y se descartaban aquí los que tuvieran assignee. Con el
-> tope por defecto (30), en un proyecto normal la lista se cortaba y las tareas
-> de más allá del tope no aparecían — con lo cual **parecían sin dueño por
-> ausencia de datos**. Eso no es "faltan opciones": es `/que-toca` dando por
-> libre una tarea que otro dev ya tiene, justo lo que el candado existe para
-> impedir.
->
-> Preguntando directamente por `no:assignee`, una lista truncada ya solo puede
-> **ocultar** tareas libres, nunca inventarlas. El fallo pasa de "dos devs sobre
-> la misma tarea" a "hoy ves menos opciones": sigue siendo un fallo, pero cae del
-> lado seguro. Por eso el aviso de arriba sigue haciendo falta, y por eso el
-> orden importa — un límite que miente en silencio es peor que un error.
-
-**Segunda comprobación, y falla al revés que la anterior:** que un issue esté abierto
-no significa que esté en el Project. `gh issue create` **no** lo añade, así que una
-tarea puede existir en Issues y ser invisible aquí — este paso solo mira el Project.
-Una lista truncada te oculta tareas *de la lista*; esto te oculta tareas *que nunca
-entraron en la lista*, y no hay síntoma: la búsqueda parece funcionar.
+Y la segunda lista, la de issues que no están en el Project (falla al revés: te
+oculta tareas que **nunca entraron** en la lista, y no hay síntoma):
 
 ```bash
-# Issues abiertos que NO estan en el Project. Vacio = ninguno fuera.
 comm -13 \
   <(gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 500 --jq '.items[].content.number' | sort) \
   <(gh issue list --state open --limit 500 --json number --jq '.[].number' | sort)
 ```
 
-Si sale algún número, **añádelo antes de elegir tarea** — son tareas reales que nadie
-puede reclamar. Son tres pasos, no uno, y los dos últimos se olvidan porque `item-add`
-no protesta:
+</details>
+
+Si salen issues **fuera del Project**, añádelos antes de elegir tarea. Son tres
+pasos, no uno, y los dos últimos se olvidan porque `item-add` no protesta:
 
 ```bash
 gh project item-add {{PROJECT_NUMBER}} --owner {{OWNER}} --url <url-del-issue>
@@ -146,27 +120,21 @@ python3 scripts/tablero.py --mover "$ITEM_ID" "Disponible"   # o "Bloqueada" si 
 
 **`item-add` no imprime nada y deja el `Status` en `null`.** Un item sin estado no
 cae en ninguna columna: lo has "añadido" y sigue sin verse. Por eso el tercer paso no
-es opcional. Confirmar que no queda ninguno suelto:
-
-```bash
-gh project item-list {{PROJECT_NUMBER}} --owner {{OWNER}} --format json --limit 500 \
-  --jq '[.items[]|select(.status==null)|.content.number]'   # debe salir []
-```
+es opcional — y es justo lo que denuncia el aviso `item(s) SIN estado` de la tabla.
 
 > Caso real (2026-07-29): **seis** issues abiertos de tres personas estaban fuera del
 > Project, incluidas una deuda de RLS y el rate limiting de OWASP A04. Ninguna era
-> reclamable, y nadie lo notó porque el paso 3 devolvía resultados con normalidad.
+> reclamable, y nadie lo notó porque el paso devolvía resultados con normalidad.
 > Añadir el issue al Project es parte de crearlo; esta comprobación caza al que se
 > olvide.
 
-Elegir la de **menor número** entre las `Disponible` sin assignee (o del módulo que el
-dev prefiera). La segunda columna de la salida ES el assignee: si trae algo, esa tarea
-tiene dueño aunque el Project la pinte `Disponible`. El `id` del item no hace falta
-todavía — se resuelve en el paso 4, por número.
+Elegir la de **menor número** entre las `Disponible` sin dueño (o del módulo que el
+dev prefiera). El `id` del item no hace falta todavía — se resuelve en el paso 4,
+por número.
 
-Si el Project dice `Disponible` pero el issue **no** sale en la lista de "sin
-assignee", está cogido: el Project va desactualizado, no al revés. La verdad
-sobre quién tiene qué es el assignee del issue.
+Si el Project dice `Disponible` pero el script lo saca con assignee, está cogido:
+el Project va desactualizado, no al revés. La verdad sobre quién tiene qué es el
+assignee del issue, y por eso el script lo denuncia en vez de ofrecértela.
 
 ## Paso 4 — Reclamar (el candado)
 
@@ -177,7 +145,8 @@ gh issue edit <N> --add-assignee @me
 ```
 
 Mover la tarjeta a En progreso. El `id` del item **no** es el número del issue, y el
-paso 3 ya no lo imprime — son ~28 chars por item acarreados para usar exactamente uno.
+la lista de candidatas ya no lo imprime — son ~28 chars por item acarreados para
+usar exactamente uno.
 Se resuelve por número:
 
 ```bash
@@ -193,7 +162,7 @@ Si algo falla, sale con error explicando qué: entonces **no des la tarea por
 reclamada**, porque el tablero no dice lo que crees.
 
 **Colisión:** si `--add-assignee` falla o al re-verificar ya tiene assignee → otro dev la
-ganó: volver al paso 3 y elegir otra.
+ganó: volver a los pasos 2-3 y elegir otra.
 
 ## Paso 5 — Rama de trabajo
 
@@ -234,7 +203,8 @@ dos días de uso real.
 el fichero que deja crece con el Project: en un proyecto real de ~90 tareas pesaba
 **150.661 chars ≈ 40.700 tokens**, el 20% de una ventana de 200k. Es para leerlo una
 persona de un tirón. **Un agente no lo abre**: el estado que necesita se lo dio el
-paso 3 por ~119 tokens. Por eso `--generar` imprime ahora el peso al terminar — para
+los pasos 2-3 por ~204 tokens (`scripts/estado.py`). Por eso `--generar` imprime
+ahora el peso al terminar — para
 que la cifra esté delante de quien vaya a abrirlo, en vez de en un párrafo que
 envejece.
 
@@ -260,7 +230,7 @@ sin proteger para siempre — precio altísimo por sincronizar una nota.
 > ```
 >
 > Si el push rebota → `git pull --rebase` y reintentar; si el log muestra que otro
-> reclamó la misma T-nnn primero, ceder y volver al paso 3.
+> reclamó la misma T-nnn primero, ceder y volver a los pasos 2-3.
 >
 > En ese modo `main` no puede estar protegida del todo: es el precio de no tener el
 > candado en GitHub. Elegir un modo u otro, nunca los dos. Ver `trabajo_en_equipo.md` §9.
