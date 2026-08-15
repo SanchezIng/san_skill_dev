@@ -70,11 +70,13 @@ python3 kit-construction-project/kickstart_check.py        # coherencia del kick
 sh      kit-construction-project/test_instalar.sh          # el ciclo real de instalación
 ```
 
-Diez suites, **212 casos**, todas probando también que muerden:
+Once suites, todas probando también que muerden. Cada una imprime su propio
+recuento al correr — que es la cifra buena; la de esta tabla envejece sola:
 
 | Suite | Casos | Qué protege |
 |---|---|---|
 | `test_tablero.py` | 31 | IDs del Project, mover tarjetas, generar el tablero sin pisar el log |
+| `test_estado.py` | 15 | las tres comprobaciones del reclamo: tope que miente, titulo vivo del issue y las dos formas de ser invisible |
 | `test_kickstart_check.py` | 32 | que la guarda del kickstart no acuse en falso ni calle |
 | `test_audit_check.py` | 26 | los cuatro modos de fallo de la allowlist, y fallar cerrado |
 | `test_instalar.sh` | 37 | instalar → configurar → actualizar ×2 → reconciliar, que el repaso llegue en las tres rutas y que un proyecto ya configurado salga limpio |

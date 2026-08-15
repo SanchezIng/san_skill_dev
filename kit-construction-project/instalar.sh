@@ -340,6 +340,13 @@ done
 copiar "$KIT/plantillas/protocolo/tablero.py" "$DESTINO/scripts/tablero.py"
 copiar "$KIT/plantillas/protocolo/test_tablero.py" "$DESTINO/scripts/test_tablero.py"
 
+# Lo que /que-toca necesita saber ANTES de elegir tarea, en una sola pasada
+# (pasos 2-3). NO tiene casilla propia que rellenar: importa OWNER y
+# PROJECT_NUMBER de tablero.py a proposito, para que quien rellene solo una de
+# las dos no acabe leyendo el Project equivocado EN SILENCIO.
+copiar "$KIT/plantillas/protocolo/estado.py" "$DESTINO/scripts/estado.py"
+copiar "$KIT/plantillas/protocolo/test_estado.py" "$DESTINO/scripts/test_estado.py"
+
 copiar "$KIT/plantillas/ci/docs_check.py" "$DESTINO/scripts/docs_check.py"
 copiar "$KIT/plantillas/ci/test_docs_check.py" "$DESTINO/scripts/test_docs_check.py"
 copiar "$KIT/plantillas/ci/docs-check.yml" "$DESTINO/.github/workflows/docs-check.yml"

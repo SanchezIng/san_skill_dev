@@ -3,6 +3,45 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-15 — Los pasos 2-3 del reclamo dejan de depender de que alguien se acuerde
+
+Retorno proyecto→kit, el segundo. `scripts/estado.py` nació y se midió en un
+proyecto real y el kit seguía enseñando **cinco invocaciones a `gh` a mano** para
+lo mismo. Ahora viaja en el kit, con sus 15 casos.
+
+**Qué se rompía.** Los pasos 2-3 pedían tres comprobaciones que solo existían como
+prosa: que ninguna lista viniera cortada por el `--limit`, que el título saliera
+del issue y no de la copia congelada de la tarjeta, y que no hubiera issues
+abiertos fuera del Project. Las tres dependían de que el agente se acordara, y
+**una ya falló de verdad**: el `.title` del item no sigue los renombrados del
+issue, así que la tarjeta decía `T-062` cuando la tarea era la `T-072` — reclamar
+por ese número es reclamar otra cosa. Ahora las tres las hace el script y cada una
+tiene un caso que muerde.
+
+**Lo que NO es.** No es un ahorro de contexto disfrazado. Se midió antes de
+construirlo: la agregación ahorra ~500 tokens por reclamo (~1.600 con lo que
+adelgaza la skill), no los ~10.000 que estimaba la propuesta de un servidor MCP —
+que por eso se descartó. El valor es que el candado deje de apoyarse en la memoria.
+
+**Sin casilla nueva que rellenar.** `estado.py` importa `OWNER` y
+`PROJECT_NUMBER` de `tablero.py` en vez de declararlos: dos copias significaban
+que quien rellenara solo una leyera el Project equivocado **en silencio**, que es
+el peor modo de fallo para un candado.
+
+**Un fallo que destapó el propio port.** El caso «el informe no vuelca JSON»
+estaba escrito como `"{" not in texto`, y eso no mide el formato: mide la
+configuración. Con `PROJECT_NUMBER` todavía en `{{PROJECT_NUMBER}}` —o sea, en
+cualquier kit recién instalado y antes de configurarlo— la cabecera lleva llaves y
+el caso daba rojo sin que nada estuviera mal. Ahora se comprueba por las claves
+del dict, que es lo que de verdad distingue un informe de un volcado. En el
+proyecto de origen el caso pasa porque allí el número está puesto: **un test que
+depende de si alguien ya configuró el proyecto no prueba lo que dice su nombre**,
+y solo se ve al moverlo.
+
+La skill `/que-toca` funde los pasos 2 y 3 en uno, y conserva los comandos
+manuales —con las tres trampas del `--jq`, el tope y `(.assignees // [])`— en un
+desplegable, para quien no tenga el script a mano o esté depurando.
+
 ## 2026-08-07 — Dos guardas volvían del proyecto donde crecieron, y una no estaba enchufada
 
 Retorno proyecto→kit: `docs_check.py` y `arranque.sh` llevaban semanas mejorando

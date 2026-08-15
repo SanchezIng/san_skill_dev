@@ -156,7 +156,7 @@ se declara siempre, aunque solo se rehaga en las zonas sensibles.
 
    > Caso real: seis issues abiertos de tres personas estaban fuera del Project,
    > incluidas una deuda de RLS y el rate limiting de OWASP A04. Ninguna era
-   > reclamable. `/que-toca` (paso 3) lleva la comprobación de deriva que lo caza.
+   > reclamable. `/que-toca` (pasos 2-3, vía `scripts/estado.py`) lleva la comprobación que lo caza.
 
 3. **El tablero NO se comitea** (está en `.gitignore`): es un espejo del Project y ya
    quedó actualizado con los puntos 1 y 2. Regenéralo cuando quieras verlo:

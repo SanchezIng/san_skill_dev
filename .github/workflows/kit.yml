@@ -50,5 +50,8 @@ jobs:
       - name: Resolucion de IDs y movimiento del tablero
         run: python3 kit-construction-project/plantillas/protocolo/test_tablero.py
 
+      - name: Estado del reclamo (tope, titulo vivo, issues invisibles)
+        run: python3 kit-construction-project/plantillas/protocolo/test_estado.py
+
       - name: Hook de recordatorio de seguridad
         run: sh kit-construction-project/plantillas/hooks/test_recordar-seguridad.sh
