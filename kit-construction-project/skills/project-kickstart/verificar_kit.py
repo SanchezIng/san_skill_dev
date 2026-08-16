@@ -130,6 +130,23 @@ INVOCACION = re.compile(
 HERRAMIENTA = (".py", ".sh", ".js", ".mjs")
 VENTANA = 3  # líneas tras la orden: el comando casi siempre va justo debajo
 
+# --- DoD: lo que solo puede hacerse DESPUÉS de mergear ---
+#
+# Se exige sobre ítems de checklist (`- [ ]`) y no sobre cualquier línea: la
+# tabla del preámbulo que explica esta misma regla nombra el tag y el desbloqueo,
+# y sin este filtro la guarda se dispararía contra su propia explicación. Es el
+# mismo modo de fallo que ya suspendió otra guarda de este kit contra el PR que
+# la introducía.
+CHECKBOX = re.compile(r"^[-*]\s*\[[ xX]\]")
+ACCION_POST_MERGE = re.compile(
+    r"\btags?\s+`?v\d"           # "tag v0.1.0"
+    r"|\ba\s+Terminad[oa]\b"     # "T-005 a Terminado"
+    r"|\bpasan?\s+a\s+Disponible\b"
+    r"|\bse\s+(?:abre\s+el\s+catálogo|desbloquea)",
+    re.IGNORECASE,
+)
+MARCA_POST_MERGE = re.compile(r"post-merge", re.IGNORECASE)
+
 # Carpetas que NO son el kit generado, aunque vivan dentro del proyecto.
 #
 # `SKILLS-PORTABLE/` es la copia del paquete que deja `instalar.sh` (de ahí lee
@@ -311,6 +328,47 @@ def ordenes_sin_procedimiento(raiz: Path) -> list[str]:
     return fallos
 
 
+def dod_post_merge_sin_marcar(raiz: Path, estado: dict) -> list[str]:
+    """Ítems del DoD que dependen del merge y se emiten al mismo nivel que el resto.
+
+    Solo en modo equipo: sin Project ni PRs, "post-merge" no significa nada.
+
+    Por qué existe. En un proyecto real se abrió el catálogo de tareas —pasar las
+    dependientes a Disponible— con la tarea todavía En progreso, o sea ANTES de
+    mergear. Nadie la reclamó en esa ventana, pero el riesgo era real: otro dev
+    habría empezado sobre un contrato que la revisión aún podía cambiar. La regla
+    estaba escrita en tres sitios y aun así no se aplicó, porque **faltaba en el
+    sitio que uno va tachando**: el DoD era una lista plana donde el tag y el
+    desbloqueo convivían con "tests pasando" sin nada que los distinguiera.
+
+    Marcar el orden no impide saltárselo. Lo que quita es la excusa de que la
+    lista no lo decía — y sin este caso, la regla sería una recomendación más.
+    """
+    proyecto = estado.get("proyecto") or {}
+    devs = proyecto.get("num_devs") or 1
+    if not (proyecto.get("modo_equipo") or (isinstance(devs, int) and devs >= 2)):
+        return []
+
+    ruta = raiz / "docs/guia_desarrollo.md"
+    if not ruta.is_file():
+        return []  # ya lo denuncia faltan_archivos
+
+    fallos = []
+    for num, linea in enumerate(ruta.read_text(encoding="utf-8").splitlines(), 1):
+        if not CHECKBOX.match(linea.strip()):
+            continue  # la tabla del preámbulo explica la regla: no es un ítem
+        m = ACCION_POST_MERGE.search(linea)
+        if not m or MARCA_POST_MERGE.search(linea):
+            continue
+        fallos.append(
+            f"docs/guia_desarrollo.md:{num}: el DoD pone «{m.group(0).strip()}» al "
+            f"mismo nivel que lo que se construye antes del merge. Va marcado: "
+            f"`- [ ] ⏭️ **post-merge:** …` (un tag apunta a un commit de `main`, y "
+            f"una dependencia desbloquea al estar mergeada, no al tener PR abierto)"
+        )
+    return fallos
+
+
 def claude_md_incompleto(raiz: Path, estado: dict) -> list[str]:
     """CLAUDE.md es el único archivo que se lee en TODAS las sesiones. Que exista
     no basta: si no trae el mapa, cada sesión vuelve a leer el proyecto entero."""
@@ -337,7 +395,8 @@ def revisar(raiz: Path) -> list[str]:
             + placeholders_sin_resolver(archivos, raiz)
             + enlaces_rotos(archivos, raiz)
             + claude_md_incompleto(raiz, estado)
-            + ordenes_sin_procedimiento(raiz))
+            + ordenes_sin_procedimiento(raiz)
+            + dod_post_merge_sin_marcar(raiz, estado))
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -3,6 +3,60 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-16 — El DoD generado no decía cuáles de sus ítems van después del merge
+
+Cierra **M-16** y **M-14**, las dos últimas del `plan-mejora.md`. Las dos salieron
+de ejecutar el kit sobre un proyecto real, que es como se encontraron las quince
+anteriores.
+
+**Qué se rompía (M-16).** El DoD que genera el kickstart era una lista plana donde
+convivían cosas de naturaleza distinta sin nada que las distinguiera:
+
+```
+- [ ] Tests escritos y pasando
+- [ ] Tag v0.1.0                                    ← solo puede hacerse tras mergear
+- [ ] Se abre el catálogo: F2/F3 pasan a Disponible ← ídem
+```
+
+En un proyecto real **se abrió el catálogo con la tarea todavía En progreso**, o
+sea antes de mergear. Nadie la reclamó en esa ventana, pero el riesgo era real:
+otro dev habría empezado sobre un contrato que la revisión aún podía cambiar, y se
+habría quedado sin suelo.
+
+Lo interesante es dónde estaba el fallo. **La regla no faltaba: estaba escrita en
+tres sitios** —`equipo.md`, `/cerrar-sesion` y el propio log del tablero—, y se
+había leído. Faltaba en **el sitio que uno va tachando**. De ahí la lección, que es
+más general que este arreglo: *tener la regla escrita en el sitio correcto no basta
+si falta en el sitio que se mira*.
+
+Ahora la plantilla de `guia_desarrollo.md` trae la tabla que explica los tres ítems
+post-merge, el Paso 9 obliga a emitirlos como `- [ ] ⏭️ **post-merge:** …`, y —lo
+que lo convierte en mecanismo— `verificar_kit.py` **sale rojo** si un DoD generado
+lleva un tag, un "a Terminado" o un desbloqueo sin marcar. Sin ese último punto
+sería una recomendación, y este plan existe para no dejar recomendaciones.
+
+**La guarda se disparaba contra la tabla que enseña la regla.** Esa tabla nombra el
+tag y el desbloqueo, así que la primera versión acusaba a su propia explicación.
+Es el mismo auto-disparo que ya suspendió otra guarda de este kit contra el PR que
+la introducía, y la tercera vez que aparece el patrón: **toda guarda que lea texto
+acabará leyendo la documentación que habla de ella**. Resuelto exigiendo que la
+línea sea un ítem de checklist, con un caso dedicado que se vio fallar.
+
+**M-14, dos correcciones de texto que costaban trabajo real.** La tabla de
+placeholders situaba `OWNER` y `PROJECT_NUMBER` solo en `scripts/tablero.py`;
+están además **6 veces en `que-toca.SKILL.md` y 2 en `cerrar-sesion.SKILL.md`**
+(contadas, no estimadas), así que quien siguiera la tabla al pie de la letra dejaba
+las skills del candado con un `gh project item-list {{PROJECT_NUMBER}}` inválido —
+y se enteraba **al reclamar**, no al configurar. Y el Paso 9 pedía generar dos
+ítems que `instalar.sh` ya deja: regenerarlos cambia su hash en el manifiesto y la
+siguiente actualización los trata como tocados por el equipo, con reconciliación a
+mano de algo que nadie cambió. Ese razonamiento lo tuvo que deducir solo quien
+ejecutó el kit en la prueba real; ahora está escrito donde se decide.
+
+`test_verificar_kit.py`: **35 → 41 casos**. Tres mutaciones vistas en rojo, incluida
+la de desenchufar la función del agregador — el modo de fallo que dejó las guardas
+de `docs_check` en verde estando desconectadas.
+
 ## 2026-08-15 — Los pasos 2-3 del reclamo dejan de depender de que alguien se acuerde
 
 Retorno proyecto→kit, el segundo. `scripts/estado.py` nació y se midió en un

@@ -26,9 +26,9 @@ Origen: `auditoría 2026-07-25` (verificado ejecutando) o `hallazgo N` (de
 | M-11 🔴 | El checklist post-instalación es inalcanzable al actualizar | hecho |
 | M-12 🟠 | El grep de placeholders nunca puede salir limpio | hecho |
 | M-13 🟠 | El kickstart genera instrucciones que su entorno no puede ejecutar | hecho |
-| **M-14** 🟠 | **Dos correcciones de texto (tabla del README, Paso 9 vs instalador)** | **pendiente — la última** |
+| M-14 🟠 | Dos correcciones de texto (tabla del README, Paso 9 vs instalador) | **hecho** (2026-08-16) |
 | M-15 🟢 | Precedencia de operadores en `verificar_kit.py` | hecho (cayó dentro de M-10) |
-| M-16 🟠 | El DoD generado mezcla ítems post-merge sin marcarlos | pendiente |
+| M-16 🟠 | El DoD generado mezcla ítems post-merge sin marcarlos | **hecho** (2026-08-16) |
 
 **M-01 a M-09 están cerradas.** Los tres hallazgos que quedaban sin implementar
 (2, 3 y 4) tienen ya su mecanismo, y los cinco defectos de la auditoría del
@@ -687,9 +687,18 @@ casos verdes cubriendo el 15% del fallo que decía cubrir.
   equipo. Ese razonamiento debería estar en la skill, no depender de que lo deduzca
   quien la ejecuta.
 
-- [ ] Completar la fila de la tabla.
-- [ ] Nota en el Paso 9: "si viniste por `instalar.sh`, estos ya existen; no los
-      regeneres — pisarías los hashes del manifiesto".
+- [x] Completar la fila de la tabla. Hecho el 2026-08-16, y **peor de lo que decía
+      la ficha**: no son "también en `que-toca.SKILL.md:20,51`" sino **6 veces en
+      `que-toca` y 2 en `cerrar-sesion`** (contadas, no estimadas). La fila dice
+      ahora las tres ubicaciones, añade que `estado.py` **no** los declara —los
+      importa de `tablero.py`, desde el PR #21— y explica el modo de fallo: quien
+      rellene solo el script se lleva el error **al reclamar**, no al configurar.
+- [x] Nota en el Paso 9: hecha, con el motivo completo. No es solo "ya existen":
+      el instalador **registra su hash** en el manifiesto, así que regenerarlos
+      hace que la siguiente actualización los trate como tocados por el equipo —
+      llegarían como `.nuevo` y alguien reconciliaría a mano algo que nadie
+      cambió. Ese era exactamente el razonamiento que el evaluador tuvo que
+      deducir solo en la prueba real.
 
 ## M-15 · 🟢 Precedencia de operadores en `verificar_kit.py`
 
@@ -763,15 +772,30 @@ genera, y lo que genera no es ejecutable en el orden en que se va a ejecutar. La
 diferencia es que M-13 es sobre instrucciones imposibles y esta es sobre
 instrucciones posibles **en el orden equivocado**.
 
-- [ ] Regla al generar los DoD: los ítems que dependen del merge —taguear, mover a
-      Terminado, desbloquear dependientes— se emiten **marcados**, no al mismo
-      nivel que lo que se construye antes.
-- [ ] Y decir que el desbloqueo aplica a **toda** subfase, no solo a las que lo
-      escriben en su DoD: es la regla 7, pero si solo la menciona una, en las
-      demás depende de que alguien se acuerde. Regla sin mecanismo.
-- [ ] Caso en `kickstart_check.py` o `verificar_kit.py` que muerda: un DoD
-      generado con un tag sin marcar sale rojo. Sin esto es una recomendación, y
-      este plan existe para no dejar recomendaciones.
+- [x] Regla al generar los DoD, en el Paso 9 de la skill: lo que depende del merge
+      se emite `- [ ] ⏭️ **post-merge:** …`, nunca al mismo nivel. Y la plantilla
+      de `guia_desarrollo.md` trae la tabla del preámbulo que explica por qué,
+      generalizada de la que se validó en el proyecto real.
+- [x] Y dicho en esa misma tabla: **toda** subfase desbloquea a las que dependen
+      de ella, no solo las que lo escriben, y el orden es siempre
+      **mergear → Terminado → desbloquear**.
+- [x] Caso que muerde, en `verificar_kit.py` (`dod_post_merge_sin_marcar`):
+      **6 casos**, y la suite pasa de 35 a 41. Se eligió `verificar_kit` y no
+      `kickstart_check` porque este juzga la **plantilla** y aquel el **kit
+      generado**, que es donde el DoD plano hace daño.
+
+**Lo que apareció al implementarlo, y no estaba en la ficha:** la comprobación se
+dispara contra **la tabla que enseña la regla**, porque esa tabla nombra el tag y
+el desbloqueo. Es el mismo auto-disparo que ya suspendió otra guarda de este kit
+contra el PR que la introducía. Resuelto exigiendo que la línea sea un ítem de
+checklist (`- [ ]`), con un caso dedicado — verificado quitando el filtro y
+viéndolo fallar. **La documentación de un kit habla de sus propias guardas: toda
+guarda que lea texto acabará leyendo la explicación de sí misma.**
+
+Las tres mutaciones, todas vistas en rojo: función desenchufada del agregador
+(caen 3 casos), sin filtro de checkbox (cae el de auto-disparo), sin condición de
+modo equipo (cae el de un solo dev). La primera importa especialmente: es el modo
+de fallo que dejó las guardas de `docs_check` en verde estando desconectadas.
 
 **Límite:** marcar el orden no impide saltárselo. Lo que quita es la excusa de que
 la lista no lo decía — que es lo único que el kit puede quitar desde aquí.
