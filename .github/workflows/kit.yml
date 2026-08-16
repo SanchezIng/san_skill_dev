@@ -53,5 +53,8 @@ jobs:
       - name: Estado del reclamo (tope, titulo vivo, issues invisibles)
         run: python3 kit-construction-project/plantillas/protocolo/test_estado.py
 
-      - name: Hook de recordatorio de seguridad
-        run: sh kit-construction-project/plantillas/hooks/test_recordar-seguridad.sh
+      - name: Guarda de seguridad que bloquea (y su envoltura sh)
+        run: python3 kit-construction-project/plantillas/hooks/test_secure_guard.py
+
+      - name: Cierres de issue que no cierran (cuerpo del PR)
+        run: python3 kit-construction-project/plantillas/ci/test_pr_body_check.py
