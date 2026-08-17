@@ -299,6 +299,18 @@ copiar "$KIT/plantillas/hooks/secure_guard.py" "$DESTINO/.claude/hooks/secure_gu
 # roto, asi que el equipo tiene que poder comprobarlo en su maquina.
 copiar "$KIT/plantillas/hooks/test_secure_guard.py" "$DESTINO/.claude/hooks/test_secure_guard.py"
 copiar "$KIT/plantillas/hooks/test_arranque.sh" "$DESTINO/.claude/hooks/test_arranque.sh"
+
+# Instalacion automatica de los hooks de git. SOLO en stacks Node: lo dispara el
+# script `prepare` de package.json, que no existe fuera de ese mundo — copiarlo
+# siempre dejaria un fichero muerto que nadie sabe para que sirve.
+#
+# El hook de arranque ya DELATA a quien no tenga los hooks instalados; esto es la
+# otra mitad, que no haga falta acordarse. Hizo falta porque un clon real
+# commiteo sin escaneo de secretos y el commit no dijo nada.
+if [ -f "$DESTINO/package.json" ]; then
+    copiar "$KIT/plantillas/hooks/install-git-hooks.mjs" "$DESTINO/scripts/install-git-hooks.mjs"
+    grep -q '"prepare"' "$DESTINO/package.json" 2>/dev/null || AVISO_PREPARE=1
+fi
 if [ -f "$DESTINO/.claude/settings.json" ]; then
     # No se pisa un settings.json existente: puede tener config propia del dev.
     # Pero entonces el hook PreToolUse no llega solo, y ese es justo el caso de
@@ -319,6 +331,17 @@ else
     copiar "$KIT/plantillas/hooks/settings.json" "$DESTINO/.claude/settings.json"
 fi
 echo "OK  hooks (arranque + guarda de seguridad que bloquea)"
+
+if [ -n "${AVISO_PREPARE:-}" ]; then
+    echo
+    echo "AVISO: se instalo scripts/install-git-hooks.mjs pero tu package.json NO"
+    echo "       tiene script 'prepare', asi que NADIE lo llama y los hooks de git"
+    echo "       siguen dependiendo de que cada dev ejecute 'pre-commit install'."
+    echo "       Anadelo:"
+    echo '         "scripts": { "prepare": "node scripts/install-git-hooks.mjs" }'
+    echo "       Se avisa porque un fichero instalado que nadie ejecuta se parece"
+    echo "       demasiado a una guarda activa."
+fi
 
 if [ "${AVISO_HOOK:-}" = "migrar" ]; then
     echo
@@ -396,7 +419,22 @@ if [ ! -f "$DESTINO/.github/workflows/audit.yml" ]; then
 else
     copiar "$KIT/plantillas/ci/audit.yml" "$DESTINO/.github/workflows/audit.yml"
 fi
-echo "OK  auditoria de dependencias (allowlist caducable)"
+# Vigilancia programada: el audit de arriba solo corre cuando alguien abre un PR,
+# asi que un aviso publicado contra una dependencia transitiva siempre lo
+# descubre quien venia a hacer otra cosa. Este convierte el rojo en un issue con
+# dueno ANTES de bloquear a nadie. Mismo criterio de desactivado: ademas del
+# stack, necesita que exista la etiqueta del aviso en el repo.
+copiar "$KIT/plantillas/ci/audit_report.py" "$DESTINO/scripts/audit_report.py"
+copiar "$KIT/plantillas/ci/audit_issue_text.py" "$DESTINO/scripts/audit_issue_text.py"
+copiar "$KIT/plantillas/ci/test_audit_report.py" "$DESTINO/scripts/test_audit_report.py"
+if [ ! -f "$DESTINO/.github/workflows/audit-programado.yml" ]; then
+    copiar "$KIT/plantillas/ci/audit-programado.yml" \
+           "$DESTINO/.github/workflows/audit-programado.yml.desactivado"
+else
+    copiar "$KIT/plantillas/ci/audit-programado.yml" \
+           "$DESTINO/.github/workflows/audit-programado.yml"
+fi
+echo "OK  auditoria de dependencias (allowlist caducable + vigilancia programada)"
 
 # Aviso de deriva en ramas largas. Se instala ACTIVO: no necesita configuracion
 # para funcionar (el umbral tiene un valor razonable) y su unico efecto es

@@ -1,0 +1,117 @@
+# Vigilancia programada de la auditoria de dependencias.
+#
+# El audit bloqueante vive en audit.yml y solo corre cuando alguien abre un PR.
+# Los avisos de seguridad, en cambio, se publican a cualquier hora contra
+# dependencias transitivas que nadie esta tocando: en el proyecto donde nacio
+# esta guarda, `main` se rompio TRES veces en un dia sin que nadie del equipo
+# causara ninguna, y las tres las descubrio quien venia a hacer otra cosa.
+#
+# Esto no sustituye al audit del CI: lo ADELANTA. Convierte el rojo en una tarea
+# con dueno antes de bloquear a nadie. Y solo avisa — nunca arregla: quedo
+# demostrado que el arreglo correcto no es siempre el mismo (un caso pedia un
+# override de version y el siguiente lo prohibia, porque ese override rompia el
+# linter que arrastraba el paquete).
+#
+# ANTES DE ACTIVARLO:
+#   1. Descomenta abajo la instalacion de dependencias de tu stack (la misma que
+#      en audit.yml). Sin lockfile instalado la auditoria no puede correr.
+#   2. Crea la etiqueta del aviso en el repo:
+#        gh label create auditoria-automatica -c FBCA04 -d "Aviso automatico de la auditoria"
+#      `gh` FALLA si la etiqueta no existe, y entonces no hay aviso posible.
+#   3. Renombra quitando el `.desactivado`.
+name: Auditoria programada
+
+on:
+  schedule:
+    # Diario y temprano: el aviso esta puesto antes de que nadie arranque.
+    # Ojo: los workflows programados corren SIEMPRE sobre la rama por defecto,
+    # que es justo lo que se quiere vigilar aqui.
+    - cron: "0 6 * * *"
+  # Para poder demostrarlo fallando sin esperar al dia siguiente, y para
+  # relanzarlo a mano tras arreglar algo.
+  workflow_dispatch:
+
+# Minimo privilegio: leer el codigo y escribir issues. Nada mas — este workflow
+# no toca ramas, ni PRs, ni releases.
+permissions:
+  contents: read
+  issues: write
+
+# Dos ejecuciones a la vez (la programada + un dispatch manual) podrian abrir dos
+# avisos del mismo problema.
+concurrency:
+  group: auditoria-programada
+  cancel-in-progress: false
+
+jobs:
+  auditoria:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Instalacion de dependencias (descomenta la de tu stack) ------------
+      #
+      # Con lockfile ESTRICTO a proposito: se audita lo que la rama por defecto
+      # tiene clavado, no lo que el gestor resolveria hoy. Auditar otra cosa
+      # daria un veredicto sobre un arbol que nadie usa.
+      #
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: "22", cache: "npm" }
+      # - run: npm ci
+      #
+      # - uses: pnpm/action-setup@v4
+      #   with: { version: 10 }
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: "22", cache: "pnpm" }
+      # - run: pnpm install --frozen-lockfile
+      #
+      # - uses: actions/setup-python@v5
+      #   with: { python-version: "3.12" }
+      # - run: pip install -r requirements.txt pip-audit
+      #
+      # - uses: shivammathur/setup-php@v2
+      #   with: { php-version: "8.3" }
+      # - run: composer install --no-interaction --no-progress
+
+      # El paso captura el codigo de salida en vez de fallar aqui: si fallara, el
+      # paso siguiente se saltaria y no habria aviso — el rojo se quedaria en una
+      # pestana que nadie mira. El resultado se refleja al final.
+      - name: Auditoria de dependencias
+        id: audit
+        run: |
+          set +e
+          python3 scripts/audit_check.py > audit.log 2>&1
+          codigo=$?
+          set -e
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+          cat audit.log
+          echo "::notice::audit_check.py salio con codigo $codigo"
+
+      # `if: always()` no es un adorno: si el paso anterior se rompe de una forma
+      # no prevista, el aviso tiene que salir igual. `audit_report.py` distingue
+      # "no hay vulnerabilidades" de "no pude auditar" y abre issues distintos.
+      #
+      # Seguridad: nada de `${{ }}` dentro del `run:`. El unico dato variable
+      # viaja por env y son digitos generados por el paso anterior; el log —que
+      # trae titulos y URLs de advisories publicados por terceros— llega por
+      # fichero y se pasa a `gh` con --body-file, nunca por linea de comandos.
+      - name: Abrir, actualizar o cerrar el aviso
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUDIT_EXIT: ${{ steps.audit.outputs.codigo }}
+          # Etiquetas adicionales del aviso, separadas por coma (opcional).
+          # Solo las que EXISTAN en el repo: `gh` falla si no existen.
+          # AUDIT_ISSUE_LABELS_EXTRA: "modulo:comun"
+        run: python3 scripts/audit_report.py audit.log
+
+      # El issue es el canal de aviso, pero la ejecucion tambien tiene que quedar
+      # en rojo: una tanda de ejecuciones verdes con la rama por defecto rota es
+      # la regla del silencio otra vez.
+      - name: Reflejar el resultado de la auditoria
+        if: always() && steps.audit.outputs.codigo != '0'
+        env:
+          CODIGO: ${{ steps.audit.outputs.codigo }}
+        run: |
+          echo "La auditoria fallo (codigo $CODIGO). El aviso queda en un issue."
+          exit 1

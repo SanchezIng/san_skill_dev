@@ -3,6 +3,61 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-16 (3) — El rojo de la auditoría llegaba siempre en el peor momento
+
+Cuarto retorno proyecto→kit. Entra la **vigilancia programada** de la auditoría
+(`audit_report.py` + `audit_issue_text.py` + `audit-programado.yml`) y la mitad que
+le faltaba al kit para que los hooks de git no dependan de nadie
+(`install-git-hooks.mjs`).
+
+**Qué se rompía.** El audit bloqueante solo corre cuando alguien abre un PR, pero
+los avisos de seguridad se publican a cualquier hora contra dependencias
+transitivas que nadie está tocando. Resultado: **el rojo siempre lo descubre quien
+venía a hacer otra cosa.** En el proyecto de origen, `main` se rompió tres veces en
+un día sin que nadie del equipo causara ninguna, y costó dos desvíos completos a un
+dev que venía a otra tarea. Ahora una ejecución programada convierte el rojo en un
+issue con dueño antes de bloquear a nadie — y lo **cierra sola** cuando vuelve el
+verde.
+
+**Solo avisa, nunca arregla.** No es prudencia genérica: quedó demostrado que el
+arreglo correcto no es siempre el mismo — un caso se resolvió con un override de
+versión y el siguiente lo prohibía, porque ese override rompía el linter que
+arrastraba el paquete. Un bot que suba versiones a ciegas habría tumbado la
+herramienta.
+
+**El quinto estado, que es el que suele faltar.** Los cuatro obvios son verde/rojo
+× hay aviso/no hay aviso. El quinto es que la auditoría **no llegara a ejecutarse**:
+sin código de salida o sin log no se sabe nada, y eso NO se cuenta como verde —
+abre un aviso distinto que dice justo eso. Es la misma regla que ya gobierna el
+resto del kit: *no poder preguntar no es que la respuesta sea no*.
+
+**Anti-ruido con el estado en el propio issue.** El cuerpo lleva embebida una
+huella del conjunto de problemas, así que el mismo rojo dos días seguidos no
+comenta nada. La huella se calcula sobre los problemas y **no sobre el log**, que
+trae recuentos y tiempos que cambian solos: calcularla sobre el log entero
+convertiría el anti-ruido en ruido diario.
+
+**El `schedule:` sale de `audit.yml`**, y no es cosmético: corriendo ahí, un rojo
+programado solo dejaba una X en la pestaña de Actions — que la ve quien la mira.
+En el workflow nuevo el mismo rojo abre un issue con dueño. Dos `schedule:`
+auditando lo mismo habrían sido además ruido duplicado.
+
+**`install-git-hooks.mjs`: solo la mitad que faltaba.** El kit ya **delataba** al
+que no tuviera los hooks (el hook de arranque lo comprueba leyendo los tipos del
+`.pre-commit-config.yaml`); lo que no tenía es que se instalaran solos. Se comprobó
+antes de portar, para no duplicar un mecanismo que ya existía. Se instala **solo si
+el destino tiene `package.json`** —fuera de Node nadie ejecuta `prepare`, y un
+fichero instalado que nadie llama se parece demasiado a una guarda activa— y si
+falta el script `prepare`, el instalador lo dice.
+
+**Una mutación que no mordió, y por qué se cuenta.** Al probar el quinto estado,
+mutar `if ejecutada and codigo == 0` no tumbó ningún caso: `leer_resultado` ya
+devuelve código 1 cuando no concluye, así que esa condición es **defensa
+redundante** y su mutación no cambia nada observable. La mutación que sí representa
+el fallo real —dar por bueno un log que no existe— tumba el caso a la primera. *No
+basta con ver un test en rojo: hay que ver que se pone rojo por el motivo
+correcto,* y su reverso, que un verde bajo mutación puede significar que la
+mutación no era un fallo.
 ## 2026-08-16 (2) — La guarda de seguridad deja de avisar y pasa a bloquear
 
 Tercer retorno proyecto→kit. `recordar-seguridad.sh` **sale del kit** y lo
