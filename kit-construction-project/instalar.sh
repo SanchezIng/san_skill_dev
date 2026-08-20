@@ -175,7 +175,8 @@ resumen_actualizacion() {
     fi
     echo
     echo "Kit en version $VERSION_KIT. Comprueba que todo sigue verde:"
-    echo "  sh .claude/hooks/test_recordar-seguridad.sh"
+    echo "  python3 .claude/hooks/test_secure_guard.py"
+    [ -f "$DESTINO/scripts/test_pr_body_check.py" ] && echo "  python3 scripts/test_pr_body_check.py"
     [ -f "$DESTINO/scripts/test_docs_check.py" ] && echo "  python3 scripts/test_docs_check.py"
     [ -f "$DESTINO/scripts/test_proteccion_main.py" ] && echo "  python3 scripts/test_proteccion_main.py"
     return 0
@@ -288,29 +289,55 @@ fi
 # equipo: la skill se salta igual en un proyecto de un solo dev cuando el
 # trabajo entra por una puerta imprevista (merge, conflicto, hotfix, revision).
 copiar "$KIT/plantillas/hooks/arranque.sh" "$DESTINO/.claude/hooks/arranque.sh"
-copiar "$KIT/plantillas/hooks/recordar-seguridad.sh" "$DESTINO/.claude/hooks/recordar-seguridad.sh"
+# La guarda de seguridad BLOQUEA la edicion si la skill no se invoco. La
+# envoltura .sh existe porque el interprete no se llama igual en todas las
+# maquinas (Git Bash suele traer `python` y no `python3`) y settings.json no
+# sabe elegir; si no hay Python, bloquea en vez de dejar pasar.
+copiar "$KIT/plantillas/hooks/secure_guard.sh" "$DESTINO/.claude/hooks/secure_guard.sh"
+copiar "$KIT/plantillas/hooks/secure_guard.py" "$DESTINO/.claude/hooks/secure_guard.py"
 # El test viaja con el hook: un hook silencioso es indistinguible de un hook
 # roto, asi que el equipo tiene que poder comprobarlo en su maquina.
-copiar "$KIT/plantillas/hooks/test_recordar-seguridad.sh" "$DESTINO/.claude/hooks/test_recordar-seguridad.sh"
+copiar "$KIT/plantillas/hooks/test_secure_guard.py" "$DESTINO/.claude/hooks/test_secure_guard.py"
 copiar "$KIT/plantillas/hooks/test_arranque.sh" "$DESTINO/.claude/hooks/test_arranque.sh"
 if [ -f "$DESTINO/.claude/settings.json" ]; then
     # No se pisa un settings.json existente: puede tener config propia del dev.
     # Pero entonces el hook PreToolUse no llega solo, y ese es justo el caso de
     # los proyectos ya instalados — los que mas lo necesitan.
-    grep -q "recordar-seguridad" "$DESTINO/.claude/settings.json" || AVISO_HOOK=1
+    if grep -q "secure_guard" "$DESTINO/.claude/settings.json"; then
+        :
+    elif grep -q "recordar-seguridad" "$DESTINO/.claude/settings.json"; then
+        # Migracion: el settings apunta al hook viejo, que este kit ya no
+        # instala. Sin este aviso el proyecto se queda invocando un fichero que
+        # no existe — o sea SIN guarda, y sin que nada lo diga. Es justo el modo
+        # de fallo que la guarda existe para eliminar, servido por su propia
+        # actualizacion.
+        AVISO_HOOK=migrar
+    else
+        AVISO_HOOK=1
+    fi
 else
     copiar "$KIT/plantillas/hooks/settings.json" "$DESTINO/.claude/settings.json"
 fi
-echo "OK  hooks (arranque + recordatorio de seguridad)"
+echo "OK  hooks (arranque + guarda de seguridad que bloquea)"
 
-if [ -n "${AVISO_HOOK:-}" ]; then
+if [ "${AVISO_HOOK:-}" = "migrar" ]; then
+    echo
+    echo "AVISO (migracion): tu .claude/settings.json invoca el hook VIEJO"
+    echo "       'recordar-seguridad.sh', que este kit ya no instala. Tal como"
+    echo "       esta, el hook apunta a un fichero inexistente: te quedas SIN"
+    echo "       guarda y sin aviso. Cambia esa linea por:"
+    echo "         \"command\": \"bash .claude/hooks/secure_guard.sh\""
+    echo "       (bloque completo en $KIT/plantillas/hooks/settings.json)"
+    echo "       Comprueba luego que bloquea de verdad:"
+    echo "       python3 .claude/hooks/test_secure_guard.py"
+elif [ -n "${AVISO_HOOK:-}" ]; then
     echo
     echo "AVISO: .claude/settings.json ya existia y no se ha tocado, asi que el"
     echo "       hook PreToolUse de secure-coding-guard NO quedo activo. Anadelo"
     echo "       a mano copiando el bloque 'PreToolUse' de:"
     echo "       $KIT/plantillas/hooks/settings.json"
-    echo "       Comprueba luego que avisa de verdad:"
-    echo "       sh .claude/hooks/test_recordar-seguridad.sh"
+    echo "       Comprueba luego que bloquea de verdad:"
+    echo "       python3 .claude/hooks/test_secure_guard.py"
 fi
 
 if [ "$MODO" != "--protocolo" ]; then
@@ -349,8 +376,13 @@ copiar "$KIT/plantillas/protocolo/test_estado.py" "$DESTINO/scripts/test_estado.
 
 copiar "$KIT/plantillas/ci/docs_check.py" "$DESTINO/scripts/docs_check.py"
 copiar "$KIT/plantillas/ci/test_docs_check.py" "$DESTINO/scripts/test_docs_check.py"
+# Viaja con docs-check.yml porque comparte workflow: las dos son guardas de
+# "lo escrito dice lo que pasa". Un `Cierra #N` en español no cierra el issue,
+# y el PR se mergea igual dejandolo abierto sin que nadie se entere.
+copiar "$KIT/plantillas/ci/pr_body_check.py" "$DESTINO/scripts/pr_body_check.py"
+copiar "$KIT/plantillas/ci/test_pr_body_check.py" "$DESTINO/scripts/test_pr_body_check.py"
 copiar "$KIT/plantillas/ci/docs-check.yml" "$DESTINO/.github/workflows/docs-check.yml"
-echo "OK  guardas de deriva doc<->realidad"
+echo "OK  guardas de deriva doc<->realidad (enlaces, backlog y cierres de issue)"
 
 # Auditoria de dependencias con allowlist caducable. El workflow se instala
 # DESACTIVADO: necesita que se rellene GESTOR y que se descomente la instalacion

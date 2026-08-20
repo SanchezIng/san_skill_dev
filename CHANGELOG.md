@@ -3,6 +3,66 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-16 (2) — La guarda de seguridad deja de avisar y pasa a bloquear
+
+Tercer retorno proyecto→kit. `recordar-seguridad.sh` **sale del kit** y lo
+sustituyen `secure_guard.sh` + `secure_guard.py`, que no recuerdan: **deniegan la
+edición**. Entra también `pr_body_check.py`, la guarda de los cierres de issue.
+Las dos nacieron y se midieron en portal-web-api-sunat (T-204 y T-208).
+
+**Qué se rompía.** El hook viejo emitía un `additionalContext` en **cada** edición
+de código y nunca comprobaba nada: no sabía si la skill se había invocado, así que
+avisaba igual al que ya la había aplicado. Un recordatorio que se repite sin mirar
+es ruido, y el ruido se aprende a ignorar — que es como muere un recordatorio. El
+nuevo verifica contra el transcript de la sesión y **se calla en cuanto la
+obligación se cumple**; si no hay rastro, bloquea la edición y explica qué hacer.
+
+**Los dos falsos negativos que casi lo dejan inútil**, encontrados provocándolos y
+hoy con un caso que muerde cada uno:
+
+- **Auto-disparo.** El aviso que emite la guarda queda escrito en el transcript.
+  Con un patrón laxo, la guarda lee su propio texto y se da por satisfecha el
+  resto de la sesión.
+- **Mención ≠ invocación.** El `CLAUDE.md` de un proyecto nombra la ruta del
+  `SKILL.md` en su sección de obligaciones, y se lee al arrancar cada sesión:
+  bastaba con eso para silenciarla siempre.
+
+De ahí la regla, que vale para la próxima guarda que alguien escriba: **al
+comprobar "¿pasó X?" leyendo texto, exige la estructura del acto, no su nombre** —
+la documentación de un proyecto habla de sus propias guardas y acaba
+disparándolas o silenciándolas.
+
+**Lo que el port heredó del hook que sustituye, y por eso no es una copia.** El
+`.sh` viejo comprobaba que la skill estuviera instalada antes de decir nada; el
+`.py` del proyecto de origen no, porque allí siempre lo está. Sin esa
+comprobación, un proyecto que instale el kit sin la skill se queda con **toda**
+edición de código bloqueada y sin nada que invocar para desbloquearla. Exigir algo
+que no existe no es rigor.
+
+**Una migración que había que decir en voz alta.** El instalador detectaba el hook
+mirando si `settings.json` mencionaba `recordar-seguridad`. Al retirar ese fichero,
+un proyecto ya instalado se habría quedado invocando una ruta inexistente: **sin
+guarda y sin aviso**, servido por su propia actualización. Ahora el instalador
+distingue los tres casos (ya migrado · apunta al viejo · sin hook) y el aviso de
+migración dice la línea exacta que hay que cambiar.
+
+**`pr_body_check.py`.** `Cierra #N` no cierra nada: GitHub solo reconoce las
+closing keywords en inglés. En el proyecto de origen un PR se mergeó dejando su
+issue abierto y hubo que cerrarlo a mano; el siguiente, con `Closes #N`, lo cerró
+solo — la única diferencia era el idioma. Va enganchada en `docs-check.yml` con el
+cuerpo **por `env`, nunca interpolado en el `run:`**: un
+`${{ github.event.pull_request.body }}` dentro del script lo escribe cualquiera
+que abra un PR y el runner lo ejecutaría como shell. Por entorno es un dato; en el
+`run` sería código.
+
+**Dos fallos que destapó escribir los tests, y estaban en los tests.** El primero:
+los casos del camino "no se pudo verificar" dejaban su marcador en el temporal del
+sistema, así que **pasaban la primera vez y fallaban la segunda** — un test que
+cuenta una historia distinta según cuándo lo mires. El segundo: el caso de la
+frontera de palabra usaba "reconstruye", que no contiene ningún verbo de la lista,
+o sea que **pasaba igual con el patrón roto**; con "encierra" (que sí contiene
+"cierra") por fin se pone rojo. Los dos se vieron fallar antes de darlos por
+buenos, mutando el código a propósito.
 ## 2026-08-16 — El DoD generado no decía cuáles de sus ítems van después del merge
 
 Cierra **M-16** y **M-14**, las dos últimas del `plan-mejora.md`. Las dos salieron

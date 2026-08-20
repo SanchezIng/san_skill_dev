@@ -21,7 +21,24 @@ jobs:
       # que dice "todo OK" es peor que no tenerla.
       - name: Tests de la propia guarda
         run: python3 scripts/test_docs_check.py
+      - name: Tests de la guarda del cuerpo del PR
+        run: python3 scripts/test_pr_body_check.py
       - name: Enlaces relativos + coherencia backlog<->issues
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/docs_check.py
+      # "Cierra #N" NO cierra nada: GitHub solo entiende las closing keywords en
+      # ingles. Sin esto el PR se mergea y su issue se queda abierto, en
+      # silencio. Solo aplica a pull_request: en un push a main no hay cuerpo de
+      # PR que revisar.
+      #
+      # SEGURIDAD: el cuerpo llega por `env`, NUNCA interpolado dentro del
+      # `run:`. Un `${{ github.event.pull_request.body }}` escrito en el script
+      # lo controla cualquiera que abra un PR y el runner lo ejecutaria como
+      # shell — inyeccion de comandos. Por entorno es un dato; en el `run` seria
+      # codigo. No lo "simplifiques".
+      - name: Palabras clave de cierre que no cierran
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 scripts/pr_body_check.py

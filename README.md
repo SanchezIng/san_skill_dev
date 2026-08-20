@@ -70,10 +70,10 @@ python3 kit-construction-project/kickstart_check.py        # coherencia del kick
 sh      kit-construction-project/test_instalar.sh          # el ciclo real de instalación
 ```
 
-Doce suites, **326 casos**, todas probando también que muerden. Cifras
-remedidas ejecutando el 2026-08-15: la tabla llevaba cuatro caducadas y le
-faltaba una suite entera, porque una tabla escrita a mano envejece con cada PR
-que añade un caso. Cada suite imprime su recuento al correr — esa es la buena:
+Trece suites, **352 casos**, todas probando también que muerden. Cifras
+remedidas ejecutando el 2026-08-19: la tabla escrita a mano envejece con cada PR
+que añade un caso, así que se vuelve a contar cada vez que entra una suite.
+Cada suite imprime su recuento al correr — esa es la buena:
 
 | Suite | Casos | Qué protege |
 |---|---|---|
@@ -88,7 +88,8 @@ que añade un caso. Cada suite imprime su recuento al correr — esa es la buena
 | `test_proteccion_main.py` | 25 | commits sin PR, y que la excepción de trabajar solo caduque |
 | `test_arranque.sh` | 32 | que las guardas sin activar no se queden pendientes en silencio |
 | `test_docs_check.py` | 26 | enlaces rotos y coherencia backlog↔issues |
-| `test_recordar-seguridad.sh` | 9 | el hook de seguridad al tocar código |
+| `test_secure_guard.py` | 20 | que la guarda **bloquee** al tocar código sin la skill, sus dos falsos negativos (leer su propio aviso · confundir mención con invocación) y que sin Python bloquee en vez de dejar pasar |
+| `test_pr_body_check.py` | 15 | `Cierra #N` en español no cierra el issue — y una cita no es una declaración |
 
 Las corre [`.github/workflows/kit.yml`](.github/workflows/kit.yml) en cada push y
 PR. Las guardas se ejecutan **antes** que lo que vigilan: una guarda rota que dice
