@@ -500,6 +500,18 @@ Esta guía está diseñada para desarrollar el sistema de forma incremental, una
 3. El último handoff doc en `progreso/fase-X.Y.md`
 4. La sección de la subfase que toca en esta guía
 
+{{SOLO EN MODO EQUIPO — la tabla siguiente va tal cual, es un mecanismo, no un adorno:}}
+
+**⚠️ El DoD no está ordenado, pero hay ítems que SIEMPRE van después del merge.** Están marcados `⏭️ post-merge` donde aparecen:
+
+| Ítem | Por qué no antes |
+|---|---|
+| **Tag `vX.Y.Z`** | Un tag apunta a un commit de `main`. Antes del merge ese commit no existe. |
+| **Mover la tarjeta a Terminado** | Terminado significa "está en `main`", no "lo di por bueno". Si queda un PR abierto de la tarea, la tarjeta sigue en Review hasta que entre. |
+| **Desbloquear las tareas dependientes** | Una dependencia desbloquea al estar **Terminada**, y eso es *mergeada*, no *PR abierto*. Si se adelanta, otro dev empieza sobre un contrato que la revisión aún puede cambiar — y se queda sin suelo. |
+
+Y esto no es solo de las subfases que lo mencionan: **toda** subfase desbloquea a las que dependen de ella, y en todas el orden es el mismo — **mergear → Terminado → desbloquear**. La tabla existe para que el DoD no lo contradiga por omisión.
+
 ## Mapa General de Fases y Subfases
 
 | Fase | Componente | Subfases | Duración | Acumulado |
@@ -578,6 +590,9 @@ Esta guía está diseñada para desarrollar el sistema de forma incremental, una
 - [ ] Commit hecho con Conventional Commits
 - [ ] `progreso/estado-actual.md` actualizado
 - [ ] `progreso/fase-1.1.md` creado (handoff a F1.2)
+{{SOLO EN MODO EQUIPO — y SIEMPRE con la marca, nunca al mismo nivel que lo de arriba:}}
+- [ ] ⏭️ **post-merge:** tag `v0.1.0` {{solo si esta subfase cierra un hito con tag}}
+- [ ] ⏭️ **post-merge:** {{T-nnn}} a Terminado y **se desbloquea** {{lo que dependía: F2.1 (T-006)…}}
 
 #### ⛔ Lo que NO debes hacer en esta subfase
 - {{Cosa 1 que NO se implementa aquí}}

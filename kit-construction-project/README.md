@@ -193,7 +193,7 @@ skills globales. Dos razones:
 
 | Placeholder | Ejemplo | De dónde sale |
 |---|---|---|
-| `OWNER` y `PROJECT_NUMBER` (en `scripts/tablero.py`) | `SanchezIng`, `1` | dueño y número del Project (lo ves en su URL) |
+| `OWNER` y `PROJECT_NUMBER` — en `scripts/tablero.py` **y también** en `equipo-que-toca/SKILL.md` (×6) y `equipo-cerrar-sesion/SKILL.md` (×2) | `SanchezIng`, `1` | dueño y número del Project (lo ves en su URL). `scripts/estado.py` NO los declara: los importa de `tablero.py`. Rellenar solo el script deja las skills del candado con un `gh project item-list {{PROJECT_NUMBER}}` inválido — y el fallo aparece al reclamar, no al configurar |
 | `{{PREFIJO_RAMA}}` | `{modulo}/{tarea-corta}` | convención del proyecto |
 | `{{CMD_TEST}}` | `docker compose exec app ./vendor/bin/pest` | stack |
 | `{{CMD_LINT}}` | `./vendor/bin/pint --test --dirty` | stack |

@@ -197,6 +197,71 @@ def _():
     assert any("docs/equipo.md" in f for f in fallos), fallos
 
 
+# --- 1 bis. DoD con ítems post-merge sin marcar (M-16) ----------------------
+#
+# La regla estaba escrita en tres sitios del kit y aun asi no se aplico en un
+# proyecto real: se abrio el catalogo de tareas con la tarea todavia En
+# progreso. Faltaba en el sitio que uno va tachando. Sin estos casos, la
+# correccion seria una recomendacion mas.
+
+def _equipo(guia: str):
+    """Un proyecto en modo equipo cuya guia lleva el DoD que se le pase."""
+    estado = json.loads(json.dumps(ESTADO_BASE))
+    estado["proyecto"].update({"num_devs": 3, "modo_equipo": True})
+    extra = dict(DE_EQUIPO)
+    extra["docs/guia_desarrollo.md"] = guia
+    return revisar(extra=extra, estado=estado)
+
+
+@caso("DoD con un tag sin marcar: MUERDE (un tag apunta a un commit de main)")
+def _():
+    fallos, _s = _equipo("# Guía\n\n#### ✅ DoD\n- [ ] Tests pasando\n"
+                         "- [ ] tag `v0.1.0`\n")
+    assert any("post-merge" in f and "guia_desarrollo.md:5" in f for f in fallos), fallos
+
+
+@caso("el mismo tag MARCADO: no se acusa")
+def _():
+    fallos, _s = _equipo("# Guía\n\n#### ✅ DoD\n- [ ] Tests pasando\n"
+                         "- [ ] ⏭️ **post-merge:** tag `v0.1.0`\n")
+    assert fallos == [], fallos
+
+
+@caso("desbloquear dependientes sin marcar: MUERDE (es el fallo que paso de verdad)")
+def _():
+    fallos, _s = _equipo("# Guía\n\n#### ✅ DoD\n"
+                         "- [ ] Se abre el catálogo: F2.1 y F3 pasan a Disponible\n")
+    assert len(fallos) == 1 and "post-merge" in fallos[0], fallos
+
+
+@caso("mover la tarjeta a Terminado sin marcar: MUERDE")
+def _():
+    fallos, _s = _equipo("# Guía\n\n#### ✅ DoD\n- [ ] T-005 a Terminado\n")
+    assert len(fallos) == 1, fallos
+
+
+@caso("AUTO-DISPARO: la tabla del preambulo que EXPLICA la regla no la incumple")
+def _():
+    # La tabla nombra el tag y el desbloqueo, pero sus filas no son items de
+    # checklist. Sin el filtro por `- [ ]`, la guarda se dispararia contra su
+    # propia explicacion — y una guarda que acusa al texto que la ensena acaba
+    # desactivada.
+    guia = ("# Guía\n\n"
+            "| Ítem | Por qué no antes |\n|---|---|\n"
+            "| **Tag `vX.Y.Z`** | Un tag apunta a un commit de `main`. |\n"
+            "| **Mover la tarjeta a Terminado** | Terminado es estar en `main`. |\n\n"
+            "#### ✅ DoD\n- [ ] Tests pasando\n")
+    fallos, _s = _equipo(guia)
+    assert fallos == [], fallos
+
+
+@caso("proyecto de UN dev: la regla no aplica (sin PRs, post-merge no significa nada)")
+def _():
+    fallos, _s = revisar({"docs/guia_desarrollo.md":
+                          "# Guía\n\n#### ✅ DoD\n- [ ] tag `v0.1.0`\n"})
+    assert fallos == [], fallos
+
+
 # --- 2. Placeholders sin resolver -------------------------------------------
 
 @caso("placeholder sin rellenar: MUERDE y dice donde")

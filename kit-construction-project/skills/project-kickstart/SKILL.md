@@ -295,6 +295,8 @@ Lee `references/plantillas.md` para la estructura exacta de cada archivo. Genera
 2. `docs/especificaciones.md` con secciones de OWASP + seguridad ampliada integradas
 3. `docs/guia_desarrollo.md` con fases y subfases. Cada subfase tiene: objetivo, archivos esperados, prompt literal copy-pasteable, comandos de prueba, checklist, "lo que NO hacer", "handoff a la siguiente"
 
+   **Regla del DoD (modo equipo): lo que depende del merge se emite MARCADO.** Taguear, mover la tarjeta a Terminado y desbloquear a las dependientes van `- [ ] ⏭️ **post-merge:** …`, nunca al mismo nivel que lo que se construye antes. Y el preámbulo de la guía lleva la tabla que explica por qué (está en `references/plantillas.md`). Un DoD plano es una lista donde conviven cosas de naturaleza distinta sin decirlo, y **ya falló en un proyecto real**: se abrió el catálogo de tareas con la tarea todavía En progreso, o sea antes del merge, dejando a otro dev libre para empezar sobre un contrato que la revisión aún podía cambiar. La regla estaba escrita en tres sitios y aun así no se aplicó — porque **faltaba en el sitio que uno va tachando**. Marcar el orden no impide saltárselo; quita la excusa de que la lista no lo decía, que es lo único que se puede quitar desde aquí.
+
 **Soporte:**
 
 4. `ROADMAP.md` — tabla resumida fase/subfase/estado
@@ -353,6 +355,13 @@ placeholders y las lecciones, que son todo su valor. Genera:
 
 Reglas al instanciarlo:
 
+- **Si viniste por `instalar.sh`, los ítems 21 y 25 YA EXISTEN: no los regeneres.** El
+  instalador deja `.claude/hooks/`, `.claude/settings.json` y la copia en `SKILLS-PORTABLE/`,
+  y además **registra el hash de cada uno** en `SKILLS-PORTABLE/.manifiesto`. Si los vuelves a
+  escribir, el hash deja de coincidir con lo registrado y la siguiente actualización los
+  tratará como ficheros que tocó el equipo: no se pisarán, llegarán como `.nuevo` y alguien
+  tendrá que reconciliar a mano algo que nadie cambió. Comprueba antes de generar; si están,
+  sáltalos y dilo en la entrega.
 - **Se comitean en el repo destino**, nunca se instalan como skills globales: así viajan por
   `git pull` a todo el equipo, y no disparan contra el proyecto equivocado (las skills llevan
   dentro los IDs del Project y los comandos del stack).
