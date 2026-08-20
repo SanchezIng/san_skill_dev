@@ -58,3 +58,7 @@ jobs:
 
       - name: Cierres de issue que no cierran (cuerpo del PR)
         run: python3 kit-construction-project/plantillas/ci/test_pr_body_check.py
+
+
+      - name: Aviso de la auditoria programada (los cinco estados)
+        run: python3 kit-construction-project/plantillas/ci/test_audit_report.py

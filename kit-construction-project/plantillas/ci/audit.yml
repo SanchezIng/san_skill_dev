@@ -16,10 +16,11 @@ on:
   pull_request:
   push:
     branches: [main]
-  schedule:
-    # Una vulnerabilidad nueva no espera a que alguien abra un PR: el audit se
-    # ejecuta tambien sobre codigo que no ha cambiado.
-    - cron: "0 6 * * 1"
+  # El `schedule:` que habia aqui se movio a `audit-programado.yml`, y no es un
+  # traslado cosmetico: corriendo la auditoria aqui, un rojo programado solo
+  # dejaba una X en la pestana de Actions — que la ve quien la mira. Alli el
+  # mismo rojo abre (y luego cierra) un issue con dueno. Dos `schedule:` que
+  # auditan lo mismo serian ademas ruido duplicado.
 
 jobs:
   auditoria:
