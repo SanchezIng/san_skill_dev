@@ -158,6 +158,85 @@ def _():
         assert proc.returncode == 1, proc.stdout
         assert "#33" in proc.stdout, proc.stdout
 
+# --- la referencia no viene pegada al verbo ---------------------------------
+#
+# El agujero que encontro su propio caso de uso: en el piloto la guarda dijo "Cuerpo del PR
+# OK" sobre un cuerpo real que empezaba por `Cierra **T-101 (#77)**`.
+# Ese PR habria mergeado con su issue abierto y el check de docs en verde.
+# No es que la guarda no corriera: es que emitio señal verde sobre lo que venia
+# a cazar, que es el peor modo de fallo segun T-208.
+
+@caso("referencia no pegada: `Cierra **T-101 (#77)**` (caso real del piloto)")
+def _():
+    assert PBC.revisar("Cierra **T-214 (#77)**\n\nCuerpo.") == ["77"]
+
+
+@caso("referencia no pegada: `Cierra T-005 (#5)` (caso real de un squash)")
+def _():
+    assert PBC.revisar("Cierra T-005 (#5)") == ["5"]
+
+
+@caso("con articulo en medio (`Cierra el #77`)")
+def _():
+    assert PBC.revisar("Cierra el #77") == ["77"]
+
+
+@caso("con enfasis alrededor de la referencia (`Resuelve **#12**`)")
+def _():
+    assert PBC.revisar("Resuelve **#12**") == ["12"]
+
+
+# --- ...y el limite: hasta donde NO debe estirarse ---------------------------
+#
+# El arreglo facil era un `.*` entre el verbo y el `#N`. Estos casos son la
+# razon de que el conector sea una lista cerrada: una guarda que denuncia prosa
+# normal acaba desactivada, y entonces no protege de nada.
+
+@caso("prosa entre el verbo y el numero NO cuenta (falso positivo evitado)")
+def _():
+    assert PBC.revisar("Cierra la sesion y abre #77 cuando puedas.") == []
+
+
+@caso("un punto corta la referencia (frase distinta)")
+def _():
+    assert PBC.revisar("Cierra la sesion. Ver #77 para el contexto.") == []
+
+
+# --- el gemelo: ingles que GitHub no parsea ----------------------------------
+#
+# Mismo agujero con el sintoma invertido. Aqui el autor CREE que lo hizo bien,
+# asi que nadie comprueba el issue despues de mergear. Los 25 PRs mergeados de
+# el piloto usan todos `Closes #N` pelado: no hay evidencia de que la forma
+# decorada cierre nada, y suponerlo es como se quedaron abiertos issues alli.
+
+@caso("`Closes **T-101 (#77)**` se denuncia como ingles inerte")
+def _():
+    assert PBC.revisar_ingles_inerte("Closes **T-214 (#77)**") == ["77"]
+
+
+@caso("el ingles pelado NO se denuncia (es el que funciona)")
+def _():
+    assert PBC.revisar_ingles_inerte("Closes #77") == []
+
+
+@caso("enfasis pegado al verbo sigue valiendo (`**Closes #77**`)")
+def _():
+    assert PBC.revisar_ingles_inerte("**Closes #77**") == []
+
+
+@caso("español decorado + ingles pelado = cuerpo correcto, cero quejas")
+def _():
+    cuerpo = "Cierra **T-214 (#77)**\n\nCloses #77"
+    assert PBC.revisar(cuerpo) == []
+    assert PBC.revisar_ingles_inerte(cuerpo) == []
+
+
+@caso("el ingles inerte tambien rompe el CI (exit 1), no solo avisa")
+def _():
+    codigo, salida = correr_script("Closes **T-214 (#77)**")
+    assert codigo == 1, codigo
+    assert "GitHub NO la parsea" in salida, salida
+
 
 def main() -> int:
     fallidos = 0

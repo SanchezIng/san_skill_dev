@@ -3,6 +3,47 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-22 — La guarda de cierres decía «OK» justo sobre lo que venía a cazar
+
+Quinto retorno proyecto→kit. Arreglo de `pr_body_check.py` y su suite (15 → 26 casos).
+
+**Qué se rompía.** La guarda exigía el `#N` **pegado** al verbo de cierre. Pero un
+cuerpo de PR real no se escribe así: se escribe `` `Cierra **T-101 (#77)**` ``, con
+la negrita y el id de tarea en medio. Resultado: **la guarda emitía verde sobre
+exactamente el caso que existía para cazar.** No es que no corriera — es el modo de
+fallo peor, porque un check en verde nadie lo revisa. En el proyecto de origen la
+descubrió su propio caso de uso: un PR pasó el check con su issue todavía abierto,
+y ya habían quedado dos issues sin cerrar por lo mismo.
+
+**Eran dos agujeros, y el segundo es peor.** Con la palabra clave **inglesa**
+decorada (`` `Closes **T-101 (#77)**` ``) GitHub tampoco cierra, pero el autor cree
+que lo hizo bien, así que nadie comprueba el issue después de mergear. En el caso
+español al menos queda la duda. Se detecta aparte y con su propio mensaje, porque el
+arreglo es distinto: despegar la referencia, no traducirla.
+
+**Por qué el conector no es un comodín.** El arreglo fácil era `.*` entre el verbo y
+el `#N`, y habría convertido «Cierra la sesión y abre #77 cuando puedas» en una
+denuncia. Es una lista **cerrada** — énfasis markdown, un artículo, un id de tarea,
+el paréntesis que lo envuelve — y con repetición acotada para que un cuerpo raro no
+dispare backtracking. Una guarda ruidosa acaba desactivada, que es peor que no
+tenerla; esta guarda ya se disparó una vez contra su propia documentación.
+
+**No se supuso qué acepta GitHub: se miró.** Antes de decidir qué forma inglesa dar
+por buena se revisaron los 25 PRs mergeados del proyecto de origen. **Todos** usan
+`Closes #N` pelado, así que no hay ni un caso que demuestre que la forma decorada
+cierre algo. Se acepta solo la referencia pegada (con énfasis o dos puntos, nada
+más). Dar por bueno lo contrario es justo como se quedaron issues abiertos.
+
+**Fijado por los dos lados.** Las dos roturas deliberadas se vieron en rojo: con el
+conector viejo caen los 6 casos del agujero; con un comodín caen los 2 que evitan el
+falso positivo. Si alguien lo aprieta vuelve el bug, si lo afloja vuelve el ruido.
+
+**Y una lección sobre el propio acto de comprobar.** El primer intento de romper la
+guarda **no llegó a aplicarse** (el ancla del parche no coincidió) y la suite dijo
+`26/26` — a un paso de leerse como «la guarda aguanta». *Un saboteo que no sabotea
+produce exactamente el mismo verde que una guarda que funciona.* Desde aquí, un
+script de rotura imprime la línea después de escribirla y verifica que cambió.
+
 ## 2026-08-16 (3) — El rojo de la auditoría llegaba siempre en el peor momento
 
 Cuarto retorno proyecto→kit. Entra la **vigilancia programada** de la auditoría
