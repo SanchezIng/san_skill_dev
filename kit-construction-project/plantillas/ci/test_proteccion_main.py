@@ -491,6 +491,75 @@ def _(tmp):
     assert not any("collaborators" in r for r in consultas), consultas
 
 
+def _push_directo(tmp):
+    """Un commit que entro a main sin PR: garantiza `de_commits` no vacio."""
+    repo = RepoDePrueba(tmp)
+    base = repo.commit("chore: inicial")
+    sha = repo.commit("fix: parche a pelo")
+    mod = cargar(tmp)
+    mod._api = api_simulada({})  # ningun PR asociado
+    return mod, base, sha
+
+
+def _remedio(mod, base, sha):
+    import contextlib
+    import io as _io
+    buf = _io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        codigo = mod.main(["prog", base, sha])
+    return codigo, buf.getvalue()
+
+
+@caso("SIN proteccion de rama: el remedio dice que esta guarda es la unica barrera")
+def _(tmp):
+    mod, base, sha = _push_directo(tmp)
+    mod._hay_proteccion_de_rama = lambda: False
+    codigo, salida = _remedio(mod, base, sha)
+    assert codigo == 1, codigo
+    assert "NO tiene proteccion de rama" in salida, salida
+    assert "UNICA barrera" in salida, salida
+    # Lo que NO debe hacer: mandar a revisar una barrera que no existe.
+    assert "deberia haber podido ocurrir" not in salida, salida
+
+
+@caso("CON proteccion de rama: el remedio manda a comprobar la barrera")
+def _(tmp):
+    mod, base, sha = _push_directo(tmp)
+    mod._hay_proteccion_de_rama = lambda: True
+    codigo, salida = _remedio(mod, base, sha)
+    assert codigo == 1, codigo
+    assert "TIENE proteccion de rama" in salida, salida
+    assert "UNICA barrera" not in salida, salida
+
+
+@caso("'no pude comprobarlo' no AFIRMA ninguno de los dos estados")
+def _(tmp):
+    # El caso que justifica que la deteccion tenga TRES estados y no dos. Con
+    # None el remedio no puede elegirse, asi que lo que toca es decirlo: elegir
+    # uno seria certificar una barrera que nadie miro.
+    mod, base, sha = _push_directo(tmp)
+    mod._hay_proteccion_de_rama = lambda: None
+    codigo, salida = _remedio(mod, base, sha)
+    assert codigo == 1, codigo
+    assert "NO SE PUDO comprobar" in salida, salida
+    assert "TIENE proteccion de rama" not in salida, salida
+    assert "NO tiene proteccion de rama" not in salida, salida
+    assert "UNICA barrera" not in salida, salida
+
+
+@caso("la deteccion devuelve None si la API no se puede preguntar (no False)")
+def _(tmp):
+    repo = RepoDePrueba(tmp)
+    repo.commit("chore: inicial")
+    mod = cargar(tmp)
+
+    def _revienta(_ruta):
+        raise RuntimeError("403: el token no puede leer la proteccion de rama")
+
+    mod._api = _revienta
+    assert mod._hay_proteccion_de_rama() is None, "un error NO es 'no hay proteccion'"
+
+
 def main() -> int:
     fallidos = 0
     for nombre, prueba in CASOS:

@@ -317,6 +317,23 @@ def revisar(antes: str, ahora: str) -> list[str]:
     return fallos
 
 
+def _hay_proteccion_de_rama() -> bool | None:
+    """True/False segun la API; None si NO SE PUDO PREGUNTAR.
+
+    Los tres estados van separados a proposito, y el tercero es el que importa:
+    "no hay proteccion" y "no pude comprobarlo" no son lo mismo. Colapsarlos es
+    exactamente como una guarda acaba CERTIFICANDO lo que no llego a mirar, que
+    es el modo de fallo que este kit persigue en todas partes.
+
+    Por eso devuelve None y no False ante un error: el token puede no tener
+    permiso, la API puede estar caida, o el repo puede no ser de GitHub.
+    """
+    try:
+        return _api("branches/main/protection") is not None
+    except Exception:
+        return None
+
+
 def main(argv: list[str]) -> int:
     if len(argv) < 3:
         print("Uso: proteccion_main.py <sha_antes> <sha_ahora>")
@@ -342,10 +359,28 @@ def main(argv: list[str]) -> int:
 
     if de_commits:
         print(f"\n{len(de_commits)} commit(s) entraron a main saltandose el protocolo.")
-        print("`main` TIENE proteccion de rama, asi que esto no")
-        print("deberia haber podido ocurrir: lo primero es comprobar si sigue")
-        print("activa —gh api repos/{owner}/{repo}/branches/main/protection— y")
-        print("luego revisar el cambio y, si procede, revertirlo.")
+        # El remedio es OPUESTO segun el caso, asi que se DETECTA en vez de
+        # suponerse: con proteccion, lo raro es que el commit pasara y lo
+        # primero es mirar si la barrera sigue viva; sin proteccion, esta
+        # guarda es la UNICA barrera y no hay nada que revisar aguas arriba.
+        # Y si no se pudo comprobar, se dice — no se elige un remedio a ciegas.
+        proteccion = _hay_proteccion_de_rama()
+        if proteccion is True:
+            print("`main` TIENE proteccion de rama, asi que esto no")
+            print("deberia haber podido ocurrir: lo primero es comprobar si sigue")
+            print("activa —gh api repos/{owner}/{repo}/branches/main/protection— y")
+            print("luego revisar el cambio y, si procede, revertirlo.")
+        elif proteccion is False:
+            print("`main` NO tiene proteccion de rama, asi que esta guarda es la")
+            print("UNICA barrera: nada iba a impedirlo, solo denunciarlo. No hay")
+            print("barrera que revisar aguas arriba — revisa el cambio y, si")
+            print("procede, reviertelo.")
+        else:
+            print("NO SE PUDO comprobar si `main` tiene proteccion de rama, asi")
+            print("que este aviso no afirma ni una cosa ni la otra: comprueba a")
+            print("mano si la barrera existe y sigue activa")
+            print("(gh api repos/{owner}/{repo}/branches/main/protection), y")
+            print("revisa el cambio igualmente.")
     if de_config:
         print(f"\n{len(de_config)} problema(s) de CONFIGURACION de la guarda.")
         print("Nadie se salto el protocolo: lo que pasa es que la guarda ya no")

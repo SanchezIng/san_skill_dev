@@ -3,6 +3,31 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-26 — El remedio mandaba a revisar una barrera que en la mitad de los repos no existe
+
+Sexto retorno proyecto→kit. `proteccion_main.py` deja de **suponer** que `main` tiene
+protección de rama: ahora la detecta, y distingue **tres** estados en vez de dos.
+
+**Qué se rompía.** Cuando un commit entraba a `main` saltándose el protocolo, el aviso
+afirmaba en duro que *«`main` TIENE proteccion de rama, asi que esto no deberia haber
+podido ocurrir»* y mandaba a comprobar si esa barrera seguía activa. Pero **la protección
+de rama no existe en repos privados con plan Free**, y el kit se instala justo ahí. En
+esos repos el mensaje enviaba a inspeccionar una barrera inexistente mientras el remedio
+verdadero era el opuesto: esta guarda **es** la única barrera, no hay nada aguas arriba
+que revisar, y lo único que queda es el commit. Un repo del catálogo perdió su protección
+de rama y la distinción dejó de ser teórica el mismo día.
+
+**El tercer estado es el que importa, y venía mal del proyecto de origen.** La versión que
+volvía tenía dos ramas y un `if deteccion:`, de modo que «no pude preguntarlo» (token sin
+permiso, API caída, repo que no es de GitHub) caía en la rama de «no hay protección». Es
+decir: **afirmaba un estado de la barrera que nadie llegó a mirar** — el mismo modo de
+fallo que su propio docstring decía evitar. Aquí entra con las tres ramas separadas: con
+protección, sin protección, y **«NO SE PUDO comprobar»**, que no elige remedio y lo dice.
+
+**Cómo se verificó.** Cuatro casos nuevos (25 → 29). El decisivo se vio en rojo a
+propósito antes de darlo por bueno: restaurado el `if deteccion:` de dos ramas, la suite
+cae a 28/29 y el que muere es `'no pude comprobarlo' no AFIRMA ninguno de los dos estados`.
+
 ## 2026-08-22 — La guarda de cierres decía «OK» justo sobre lo que venía a cazar
 
 Quinto retorno proyecto→kit. Arreglo de `pr_body_check.py` y su suite (15 → 26 casos).
