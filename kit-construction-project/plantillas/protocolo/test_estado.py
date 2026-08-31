@@ -151,8 +151,14 @@ def _():
 
 @caso("con holgura NO hay aviso: la señal puede salir limpia")
 def _():
-    # Una señal que nunca puede estar en verde se aprende a ignorar.
-    mod = cargar(items=[item(1)], issues=[issue(1)], tope=500)
+    # Una señal que nunca puede estar en verde se aprende a ignorar. La tarjeta
+    # lleva titulo de tarea a proposito: un tablero sano no es solo "sin errores
+    # de estado", es uno que ADEMAS ofrece algo que reclamar.
+    mod = cargar(
+        items=[item(1, titulo="T-001 · Andamiaje del proyecto")],
+        issues=[issue(1)],
+        tope=500,
+    )
     estado = mod.reunir()
     assert estado["avisos"] == [], estado["avisos"]
 
@@ -320,6 +326,57 @@ def _():
     datos = json.loads("\n".join(salida))
     assert [t["numero"] for t in datos["libres"]] == [12], datos["libres"]
     assert "None" not in json.dumps(datos["libres"]), datos["libres"]
+
+
+@caso("si TODO lo Disponible son avisos, se denuncia que no hay tarea reclamable")
+def _():
+    # El caso de FARMICROW: 7 decisiones y vigilancias en Disponible, cero
+    # `T-nnn`. `libres` sale con siete candidatas y el dev se lleva la de menor
+    # numero -- que era "vigilar postcss", sin nada que hacer aguas arriba.
+    mod = cargar(
+        items=[
+            item(39, titulo="Vigilar postcss: dos avisos HIGH sin fix aguas arriba"),
+            item(41, titulo="Decidir si la CSP con nonce merece ADR propio"),
+        ],
+        issues=[issue(39), issue(41)],
+    )
+    estado = mod.reunir()
+    assert len(estado["libres"]) == 2, estado["libres"]
+    assert any("NINGUNA es una tarea" in a for a in estado["avisos"]), estado["avisos"]
+
+
+@caso("con una sola tarea `T-nnn` entre los avisos, NO se denuncia")
+def _():
+    # El aviso mide "no hay trabajo", no "hay avisos". Mezclar las dos cosas lo
+    # volveria ruido permanente: un tablero sano tiene avisos Y tareas.
+    mod = cargar(
+        items=[
+            item(39, titulo="Vigilar postcss: dos avisos HIGH sin fix aguas arriba"),
+            item(4, titulo="T-004 · Sistema de diseño y armazón responsive (F1.4)"),
+        ],
+        issues=[issue(39), issue(4)],
+    )
+    estado = mod.reunir()
+    assert not any("NINGUNA es una tarea" in a for a in estado["avisos"]), estado["avisos"]
+
+
+@caso("el aviso lee el titulo VIVO, no la copia congelada de la tarjeta")
+def _():
+    # Mismo motivo que el caso del titulo vivo: la copia del item se congela al
+    # anadir la tarjeta. Si el aviso mirase `title` en vez de `.content.title`,
+    # una tarea renombrada a `T-nnn` seguiria contando como aviso.
+    mod = cargar(
+        items=[
+            item(
+                7,
+                titulo="T-007 · Recuperacion de contraseña",
+                titulo_item="Pendiente: decidir el proveedor de correo",
+            )
+        ],
+        issues=[issue(7)],
+    )
+    estado = mod.reunir()
+    assert not any("NINGUNA es una tarea" in a for a in estado["avisos"]), estado["avisos"]
 
 
 def main() -> int:

@@ -3,6 +3,46 @@
 Cambios del catálogo. Cada entrada dice **qué se rompía**, no solo qué se tocó:
 un changelog que solo lista archivos no evita repetir el error.
 
+## 2026-08-31 — «Ante la duda, abre issue» llenó el tablero de avisos y tapó el trabajo
+
+Séptimo retorno proyecto→kit. `/cerrar-sesion` gana **dos filtros antes de abrir
+issue** y `Disponible` pasa a exigir el análisis de dependencias hecho, no solo
+mirado. `estado.py` lo respalda con un aviso nuevo.
+
+**Qué se rompía.** El único disparador para abrir issue era *«TODOs que sobreviven
+a la subfase»* — o sea, todo lo que anotas y no arreglas — reforzado con *«un
+pendiente sin issue es invisible para `/que-toca`»*. En FARMICROW eso dejó **7
+items en `Disponible` y ni una sola tarea `T-nnn`**: decisiones de diez minutos
+(«¿merece ADR propio?», «¿qué versión de pnpm manda?») y vigilancias («postcss sin
+fix aguas arriba»). Como `/que-toca` elige la de **menor número**, al siguiente dev
+le tocaba *vigilar postcss*. Una de esas tarjetas estaba además `Disponible`
+dependiendo de un PR todavía abierto: quien la cogiera ramificaba de un `main` sin
+el código que iba a endurecer.
+
+**La causa no es «se abren demasiados issues».** El mismo cierre dejó **3
+pendientes sin issue** mientras abría issue para otros, y uno de los tres era un
+choque real entre el modelo de datos y un criterio de aceptación. No sobraban ni
+faltaban: **cuál se convertía en issue salía arbitrario**, porque no había filtro.
+Y la frase que lo empujaba se había escrito para arreglar el fallo **contrario**
+(los seis issues fuera del Project, #17). El péndulo cruzó entero: antes había
+trabajo real invisible; ahora, ruido visible tapando el trabajo. Por eso el paso
+3.3 ahora dice explícitamente que acota esa regla y no la anula — los dos fallos
+son opuestos y el kit tiene que sostener los dos a la vez.
+
+**El mecanismo, porque la regla sola no basta.** `estado.py` denuncia el tablero
+que solo ofrece avisos: si hay candidatas `Disponible` y **ninguna** lleva el
+prefijo `T-nnn` que el propio kit exige para cruzar con el backlog, lo dice. Es el
+síntoma agregado, que sí es medible — si un issue concreto merecía existir es
+criterio humano y se queda en los filtros del 3.3.
+
+**Cómo se verificó.** Tres casos nuevos (15 → 18). Desactivado el aviso, la suite
+cae a 17/18 y el que muere es `si TODO lo Disponible son avisos, se denuncia que no
+hay tarea reclamable`. Uno de los tres casos existe para que el aviso **pueda salir
+limpio**: con una sola `T-nnn` entre los avisos, calla — una señal que nunca está en
+verde se aprende a ignorar. Y el caso previo `con holgura NO hay aviso` cambió de
+fixture a propósito: un tablero sano ya no es solo «sin errores de estado», es uno
+que **además** ofrece algo que reclamar.
+
 ## 2026-08-26 — El remedio mandaba a revisar una barrera que en la mitad de los repos no existe
 
 Sexto retorno proyecto→kit. `proteccion_main.py` deja de **suponer** que `main` tiene

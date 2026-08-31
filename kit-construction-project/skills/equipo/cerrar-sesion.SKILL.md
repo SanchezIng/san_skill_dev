@@ -100,8 +100,25 @@ se declara siempre, aunque solo se rehaga en las zonas sensibles.
      de arriba. Tenerlo todo aquí lo convertía en el archivo que tocaban TODAS las
      ramas, y por tanto en el segundo motivo estructural de conflicto tras el
      tablero.
-3. **TODOs que sobreviven a la subfase → issue en el Project** (paso 4.2), no un
-   párrafo en un fichero. Un pendiente sin issue es invisible para `/que-toca`.
+3. **Un TODO que sobrevive a la subfase se convierte en issue SOLO si es
+   obligatorio o si bloquea de verdad a alguien** (paso 4.2). Dos filtros:
+
+   - **¿Gatea o bloquea trabajo de otro?** → issue. Y escríbelo en el
+     `Depende de:` de la tarea que gatea, que es donde se va a leer.
+   - **¿Es obligatorio aunque hoy no bloquee?** —lo exige el contrato con el
+     negocio, una guarda de CI, una norma de seguridad— → issue.
+   - **Ninguna de las dos** → es **contexto, no trabajo**: `progreso/pendientes/`
+     si es una deuda o una trampa, `progreso/decisiones/` si es una decisión. Ahí
+     se queda, y no ocupa una columna del tablero.
+
+   «Alguien debería mirar esto» no es lo mismo que «esto es trabajo reclamable».
+   Un issue es la promesa de que alguien lo va a coger; una duda anotada, no.
+
+   > **Esto acota la regla anterior, no la anula.** Antes aquí ponía que *«un
+   > pendiente sin issue es invisible para `/que-toca`»*, y sigue siendo verdad —
+   > por eso lo que SÍ pasa los filtros tiene que acabar en el Project, con los
+   > tres pasos del 4.2. Pero se leyó como «ante la duda, abre issue», y el
+   > péndulo se fue al otro extremo: ver el caso real del paso 4.2.
 
 ## Paso 4 — Tablero y Project
 
@@ -149,14 +166,36 @@ se declara siempre, aunque solo se rehaga en las zonas sensibles.
    empiece por `T-nnn ·`, o el tablero lo muestra sin número y no se puede cruzar con
    el backlog.
 
-   **Antes de darlo por hecho, mira si depende de algo o si bloquea a alguien.** Marcar
-   `Disponible` es afirmar que nada la frena: una tarea que en realidad espera a otra le
-   cuesta una sesión al que la coja. Y si desbloquea o gatea a otra, escríbelo en el
-   `Depende de:` de **esa** otra, que es donde alguien lo va a leer.
+   **`Disponible` significa «reclamable AHORA», y afirmarlo es trabajo, no un
+   vistazo.** Antes de poner una tarjeta ahí, haz las tres cosas — las tres, no la
+   primera:
 
-   > Caso real: seis issues abiertos de tres personas estaban fuera del Project,
-   > incluidas una deuda de RLS y el rate limiting de OWASP A04. Ninguna era
-   > reclamable. `/que-toca` (pasos 2-3, vía `scripts/estado.py`) lleva la comprobación que lo caza.
+   1. **Mira de qué depende.** Si espera a otra tarea, o a un PR que aún no está
+      mergeado, va a **`Bloqueada`**. Una tarea que en realidad espera le cuesta
+      una sesión entera al que la coja: ramifica de un `main` que no tiene el
+      código sobre el que iba a construir.
+   2. **Mira a quién desbloquea**, y escríbelo en el `Depende de:` de **esa** otra
+      tarjeta. El análisis que no acaba escrito no lo hereda nadie: lo repite el
+      siguiente, o no lo hace.
+   3. **Mira qué queda en `Disponible` al terminar.** Si son todo avisos y
+      decisiones, el tablero no ofrece trabajo aunque parezca lleno.
+
+   > **Caso real (2026-08-31, FARMICROW).** Al cerrar dos subfases quedaron **7
+   > items en `Disponible` y ni una sola tarea `T-nnn`**: todos eran decisiones
+   > («¿merece ADR propio?», «¿qué versión de pnpm manda?») y vigilancias
+   > («postcss sin fix aguas arriba»). Como `/que-toca` elige la de **menor
+   > número**, al siguiente dev le tocaba *vigilar postcss* — un aviso sin nada
+   > que hacer hasta que arreglaran upstream. Y en el mismo tablero, una tarjeta
+   > estaba en `Disponible` dependiendo de un PR todavía abierto.
+   >
+   > El mismo cierre dejó **3 pendientes sin issue** mientras otros sí lo tenían.
+   > O sea: no sobraban issues ni faltaban — **cuál se convertía en issue salía
+   > arbitrario**, porque no había filtro. De ahí los dos del paso 3.3.
+
+   > Caso real anterior, por el otro lado: seis issues abiertos de tres personas
+   > estaban fuera del Project, incluidas una deuda de RLS y el rate limiting de
+   > OWASP A04. Ninguna era reclamable. Los dos fallos son opuestos y `/que-toca`
+   > (pasos 2-3, vía `scripts/estado.py`) lleva ya la comprobación de ambos.
 
 3. **El tablero NO se comitea** (está en `.gitignore`): es un espejo del Project y ya
    quedó actualizado con los puntos 1 y 2. Regenéralo cuando quieras verlo:
