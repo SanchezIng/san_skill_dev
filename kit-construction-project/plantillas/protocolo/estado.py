@@ -28,6 +28,8 @@ QUE PREGUNTA RESPONDE, TODO DE UNA VEZ
    al Project, y `item-add` no pone el estado ni protesta si falta.
 4. ¿Alguna lista viene cortada por el tope? Una lista truncada en silencio es
    peor que un error: da por libre lo que otro ya tiene.
+5. ¿Lo Disponible es trabajo, o solo avisos? Un tablero lleno de decisiones y
+   vigilancias no ofrece nada que reclamar, y eso no se ve hasta abrir una.
 
 Uso:
     python3 scripts/estado.py
@@ -37,6 +39,7 @@ Uso:
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -56,6 +59,12 @@ if str(_AQUI) not in sys.path:
 # rellena solo uno lee el Project equivocado EN SILENCIO, que es el peor modo de
 # fallo posible para un candado.
 from tablero import OWNER, PROJECT_NUMBER  # noqa: E402
+
+# Una TAREA reclamable se reconoce por el prefijo `T-nnn` del titulo: es la
+# convencion que `/cerrar-sesion` exige para poder cruzar el issue con el
+# backlog. Lo que no lo lleva es un aviso al equipo o una decision, y ninguna de
+# las dos es trabajo que se reclame.
+TAREA = re.compile(r"^\s*T-\d+")
 
 # Alto A PROPOSITO: `gh` trae 30 por defecto y una lista truncada no avisa. Si
 # alguna consulta devuelve exactamente el tope, se dice en voz alta.
@@ -196,6 +205,15 @@ def reunir() -> dict:
         avisos.append(
             "%d borrador(es) Disponible sin issue detras: no se pueden reclamar"
             % len(borradores)
+        )
+    # El tablero puede estar lleno y aun asi no ofrecer trabajo: si TODO lo
+    # Disponible son avisos y decisiones, el dev que venga a reclamar se lleva
+    # una vigilancia en vez de una tarea. Se denuncia en vez de dejar que lo
+    # descubra al abrirla, porque `libres` no distingue una cosa de la otra.
+    if libres and not any(TAREA.match(t["titulo"] or "") for t in libres):
+        avisos.append(
+            "lo Disponible (%d) son avisos o decisiones: NINGUNA es una tarea "
+            "`T-nnn`, no hay trabajo reclamable en el tablero" % len(libres)
         )
 
     return {

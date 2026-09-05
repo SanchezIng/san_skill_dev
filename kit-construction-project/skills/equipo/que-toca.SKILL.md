@@ -56,6 +56,7 @@ que acordarse de hacer:
 | `Issues abiertos FUERA del Project (N)` | tareas reales que nadie puede reclamar; se arreglan abajo |
 | `item(s) SIN estado en el Project` | la otra forma de ser invisible: la tarjeta existe pero sin `Status`, así que no sale como Disponible ni como fuera del Project. Ponle el estado que le toque |
 | `borrador(es) Disponible sin issue detrás` | una nota suelta del Project, no una tarea: no hay issue que asignar. Conviértela en issue o sácala de Disponible |
+| `NINGUNA es una tarea T-nnn` | el tablero parece lleno pero no ofrece trabajo: todo lo `Disponible` son avisos y decisiones. **No cojas la de menor número por inercia** — o queda una tarea real por desbloquear (mira las `Bloqueada` cuyas dependencias ya se cumplieron), o lo que hay que hacer es despejar esas decisiones y sacarlas de `Disponible` (`/cerrar-sesion`, pasos 3.3 y 4.2) |
 
 > **Por qué un script y no cinco `gh` a mano:** las tres comprobaciones que hace
 > dependían antes de que el agente se acordara, y una ya falló de verdad en el
